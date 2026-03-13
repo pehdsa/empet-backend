@@ -3,6 +3,7 @@ name: empet
 services:
   postgres:
     image: postgis/postgis:16-3.4-alpine
+    platform: linux/amd64
     container_name: empet-postgres
     ports:
       - "5432:5432"
