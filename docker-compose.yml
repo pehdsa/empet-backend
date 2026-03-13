@@ -1,0 +1,148 @@
+name: empet
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: empet-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: postgres
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [empet_net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: empet-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [empet_net]
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./docker/backend/Dockerfile
+    container_name: empet-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:5173
+
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: empet_db
+      DB_USERNAME: app
+      DB_PASSWORD: app
+
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      MAIL_MAILER: log
+    volumes:
+      - ./:/var/www/html
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+    networks: [empet_net]
+
+  backend-worker:
+    build:
+      context: .
+      dockerfile: ./docker/backend/Dockerfile
+    container_name: empet-backend-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: empet_db
+      DB_USERNAME: app
+      DB_PASSWORD: app
+
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      MAIL_MAILER: log
+    volumes:
+      - ./:/var/www/html
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--timeout=90"]
+    networks: [empet_net]
+
+  backend-scheduler:
+    build:
+      context: .
+      dockerfile: ./docker/backend/Dockerfile
+    container_name: empet-backend-scheduler
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: empet_db
+      DB_USERNAME: app
+      DB_PASSWORD: app
+
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      REDIS_CLIENT: phpredis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      MAIL_MAILER: log
+    volumes:
+      - ./:/var/www/html
+    command: ["php", "artisan", "schedule:work"]
+    networks: [empet_net]
+
+volumes:
+  pg_data:
+  redis_data:
+
+networks:
+  empet_net:
+    external: true
