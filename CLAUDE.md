@@ -32,7 +32,8 @@ API-only Laravel 12 backend with PostgreSQL + PostGIS, Redis, and Sanctum authen
 ## Architecture
 
 - **Thin Controllers** — delegate to Actions, never put business logic in controllers
-- **Actions** in `app/Actions/{Domain}/` — one public `handle()` method
+- **DTOs** in `app/DTOs/{Domain}/` — `final readonly` classes with constructor property promotion. Controllers build DTOs from validated request data and pass to Actions. DTOs must NOT depend on HTTP (no FormRequest imports)
+- **Actions** in `app/Actions/{Domain}/` — one public `handle()` method. Receive DTOs (not FormRequests)
 - **FormRequests** — always use form request classes, never inline validation. Include `messages()` method
 - **Resources** — camelCase JSON output, use `whenLoaded()` for relationships
 - **Policies** — use `Gate::authorize()` in controllers
