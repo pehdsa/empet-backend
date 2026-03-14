@@ -73,4 +73,11 @@ class UserFactory extends Factory
             'is_active' => false,
         ]);
     }
+
+    public function trashed(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'deleted_at' => now(),
+        ]);
+    }
 }
