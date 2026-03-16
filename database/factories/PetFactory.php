@@ -26,8 +26,8 @@ class PetFactory extends Factory
             'size' => fake()->randomElement(PetSize::cases()),
             'sex' => fake()->randomElement(PetSex::cases()),
             'breed' => fake()->optional()->word(),
+            'secondary_breed' => fake()->optional()->word(),
             'primary_color' => fake()->optional()->safeColorName(),
-            'photo_url' => null,
             'notes' => fake()->optional()->sentence(),
             'is_active' => true,
         ];

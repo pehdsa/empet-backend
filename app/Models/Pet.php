@@ -28,8 +28,8 @@ class Pet extends Model
         'size',
         'sex',
         'breed',
+        'secondary_breed',
         'primary_color',
-        'photo_url',
         'notes',
         'is_active',
     ];
@@ -50,6 +50,11 @@ class Pet extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function photos(): HasMany
+    {
+        return $this->hasMany(PetPhoto::class)->orderBy('position');
     }
 
     public function characteristics(): BelongsToMany
