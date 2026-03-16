@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\BreedController;
 use App\Http\Controllers\Api\V1\CharacteristicController;
 use App\Http\Controllers\Api\V1\PetController;
 use App\Http\Controllers\Api\V1\PetReportController;
+use App\Http\Controllers\Api\V1\UserPhoneController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -28,6 +29,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('pet-reports/{petReport}/matches', [PetReportController::class, 'matches']);
     Route::patch('pet-reports/{petReport}/matches/{petMatch}/dismiss', [PetReportController::class, 'dismissMatch']);
     Route::patch('pet-reports/{petReport}/matches/{petMatch}/confirm', [PetReportController::class, 'confirmMatch']);
+
+    Route::prefix('user/phones')->group(function (): void {
+        Route::get('/', [UserPhoneController::class, 'index']);
+        Route::post('/', [UserPhoneController::class, 'store']);
+        Route::put('/{id}', [UserPhoneController::class, 'update']);
+        Route::delete('/{id}', [UserPhoneController::class, 'destroy']);
+    });
 
     Route::get('breeds', [BreedController::class, 'index']);
     Route::get('characteristics', [CharacteristicController::class, 'index']);
