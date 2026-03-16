@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\PetReportStatus;
 use Database\Factories\PetReportFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -56,5 +57,14 @@ class PetReport extends Model
     public function matches(): HasMany
     {
         return $this->hasMany(PetMatch::class, 'report_id');
+    }
+
+    /**
+     * Scope to select latitude and longitude from the geography column.
+     */
+    public function scopeWithCoordinates(Builder $query): Builder
+    {
+        return $query->select('pet_reports.*')
+            ->selectRaw('ST_Y(location::geometry) as latitude, ST_X(location::geometry) as longitude');
     }
 }
