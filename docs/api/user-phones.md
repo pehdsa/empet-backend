@@ -5,7 +5,7 @@
 ```json
 {
   "id": 1,
-  "phone": "+5511999999999",
+  "phone": "11999999999",
   "isWhatsapp": true,
   "isPrimary": true,
   "label": "Celular"
@@ -45,8 +45,8 @@ Sem parametros.
 ```json
 {
   "data": [
-    { "id": 1, "phone": "+5511999999999", "isWhatsapp": true, "isPrimary": true, "label": "Celular" },
-    { "id": 2, "phone": "+5521988888888", "isWhatsapp": false, "isPrimary": false, "label": null }
+    { "id": 1, "phone": "11999999999", "isWhatsapp": true, "isPrimary": true, "label": "Celular" },
+    { "id": 2, "phone": "21988888888", "isWhatsapp": false, "isPrimary": false, "label": null }
   ]
 }
 ```
@@ -77,16 +77,18 @@ Sem parametros.
 
 | Campo | Tipo | Obrigatorio | Regras | Descricao |
 |-------|------|-------------|--------|-----------|
-| phone | string | sim | max:20, trim | Numero de telefone |
+| phone | string | sim | max:20, trim | Numero de telefone (armazenado como enviado, sem normalizacao) |
 | is_whatsapp | boolean | nao | default false | Telefone e WhatsApp |
 | is_primary | boolean | nao | default false | Telefone primario |
 | label | string | nao | max:50, trim, vazio vira null | Descritivo (ex: "Celular") |
+
+> **Formato do telefone**: o backend aplica apenas trim e max:20. Nao faz normalizacao (E.164, prefixo de pais, etc.) — o valor e persistido exatamente como enviado pelo front.
 
 **Exemplo:**
 
 ```json
 {
-  "phone": "+5511999999999",
+  "phone": "11999999999",
   "is_whatsapp": true,
   "is_primary": true,
   "label": "Celular"
@@ -101,7 +103,7 @@ Sem parametros.
 {
   "data": {
     "id": 1,
-    "phone": "+5511999999999",
+    "phone": "11999999999",
     "isWhatsapp": true,
     "isPrimary": true,
     "label": "Celular"
@@ -146,7 +148,7 @@ Sem parametros.
 
 ```json
 {
-  "phone": "+5521988888888",
+  "phone": "21988888888",
   "is_whatsapp": false,
   "is_primary": true,
   "label": "Trabalho"
@@ -161,7 +163,7 @@ Sem parametros.
 {
   "data": {
     "id": 1,
-    "phone": "+5521988888888",
+    "phone": "21988888888",
     "isWhatsapp": false,
     "isPrimary": true,
     "label": "Trabalho"
