@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Pet;
 
+use App\Models\Breed;
 use App\Models\Characteristic;
 use App\Models\Pet;
 use App\Models\PetPhoto;
@@ -27,6 +28,8 @@ class PetCrudTest extends TestCase
         $user = User::factory()->client()->create();
         Sanctum::actingAs($user, ['*']);
 
+        $breed = Breed::factory()->dog()->create();
+        $secondaryBreed = Breed::factory()->dog()->create();
         $characteristics = Characteristic::factory()->count(2)->marking()->create();
 
         $response = $this->postJson('/api/v1/pets', [
@@ -34,8 +37,9 @@ class PetCrudTest extends TestCase
             'species' => 'DOG',
             'size' => 'LARGE',
             'sex' => 'MALE',
-            'breed' => 'Labrador',
-            'secondary_breed' => 'Golden',
+            'breed_id' => $breed->id,
+            'secondary_breed_id' => $secondaryBreed->id,
+            'breed_description' => 'Porte maior que o padrão',
             'primary_color' => 'Caramelo',
             'notes' => 'Muito brincalhão',
             'characteristic_ids' => $characteristics->pluck('id')->toArray(),
@@ -49,20 +53,23 @@ class PetCrudTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'id', 'name', 'species', 'size', 'sex', 'breed', 'secondaryBreed',
-                    'primaryColor', 'notes', 'isActive', 'photos', 'characteristics',
-                    'createdAt', 'updatedAt',
+                    'breedDescription', 'primaryColor', 'notes', 'isActive', 'photos',
+                    'characteristics', 'createdAt', 'updatedAt',
                 ],
             ])
             ->assertJsonPath('data.name', 'Rex')
             ->assertJsonPath('data.species', 'DOG')
-            ->assertJsonPath('data.secondaryBreed', 'Golden')
+            ->assertJsonPath('data.breed.id', $breed->id)
+            ->assertJsonPath('data.secondaryBreed.id', $secondaryBreed->id)
+            ->assertJsonPath('data.breedDescription', 'Porte maior que o padrão')
             ->assertJsonCount(2, 'data.photos')
             ->assertJsonCount(2, 'data.characteristics');
 
         $this->assertDatabaseHas('pets', [
             'user_id' => $user->id,
             'name' => 'Rex',
-            'secondary_breed' => 'Golden',
+            'breed_id' => $breed->id,
+            'secondary_breed_id' => $secondaryBreed->id,
         ]);
 
         $this->assertDatabaseCount('pet_photos', 2);
@@ -193,6 +200,138 @@ class PetCrudTest extends TestCase
             ->assertJsonValidationErrors(['characteristic_ids.0']);
     }
 
+    public function test_store_with_breed_id_of_wrong_species_returns_422(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $catBreed = Breed::factory()->cat()->create();
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Rex',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'breed_id' => $catBreed->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['breed_id']);
+    }
+
+    public function test_store_with_secondary_breed_id_of_wrong_species_returns_422(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $dogBreed = Breed::factory()->dog()->create();
+        $catBreed = Breed::factory()->cat()->create();
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Rex',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'breed_id' => $dogBreed->id,
+            'secondary_breed_id' => $catBreed->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['secondary_breed_id']);
+    }
+
+    public function test_store_with_secondary_breed_id_same_as_breed_id_returns_422(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $breed = Breed::factory()->dog()->create();
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Rex',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'breed_id' => $breed->id,
+            'secondary_breed_id' => $breed->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['secondary_breed_id']);
+    }
+
+    public function test_store_with_breed_description_only_works(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Vira-lata',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'breed_description' => 'Vira-lata com traços de Pinscher',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.breedDescription', 'Vira-lata com traços de Pinscher');
+    }
+
+    public function test_store_with_breed_id_and_breed_description_works(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $breed = Breed::factory()->dog()->create();
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Rex',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'breed_id' => $breed->id,
+            'breed_description' => 'Porte menor que o padrão',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('data.breed.id', $breed->id)
+            ->assertJsonPath('data.breedDescription', 'Porte menor que o padrão');
+    }
+
+    public function test_store_with_all_breed_fields_null_works(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Rex',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    public function test_store_with_inactive_breed_returns_422(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $breed = Breed::factory()->dog()->inactive()->create();
+
+        $response = $this->postJson('/api/v1/pets', [
+            'name' => 'Rex',
+            'species' => 'DOG',
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'breed_id' => $breed->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['breed_id']);
+    }
+
     // ──────────────────────────────────────────────
     // INDEX (GET /api/v1/pets)
     // ──────────────────────────────────────────────
@@ -319,12 +458,48 @@ class PetCrudTest extends TestCase
             ->assertJsonStructure([
                 'data' => [
                     'id', 'name', 'species', 'size', 'sex', 'breed', 'secondaryBreed',
-                    'primaryColor', 'notes', 'isActive', 'photos', 'characteristics',
-                    'createdAt', 'updatedAt',
+                    'breedDescription', 'primaryColor', 'notes', 'isActive', 'photos',
+                    'characteristics', 'createdAt', 'updatedAt',
                 ],
             ])
             ->assertJsonCount(1, 'data.photos')
             ->assertJsonCount(1, 'data.characteristics');
+    }
+
+    public function test_show_returns_breed_as_object(): void
+    {
+        $user = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create(['name' => 'Labrador']);
+        $pet = Pet::factory()->create([
+            'user_id' => $user->id,
+            'species' => 'DOG',
+            'breed_id' => $breed->id,
+        ]);
+
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->getJson("/api/v1/pets/{$pet->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.breed.id', $breed->id)
+            ->assertJsonPath('data.breed.name', 'Labrador')
+            ->assertJsonPath('data.breed.species', 'DOG');
+    }
+
+    public function test_show_returns_null_breed_when_pet_has_no_breed(): void
+    {
+        $user = User::factory()->client()->create();
+        $pet = Pet::factory()->create([
+            'user_id' => $user->id,
+        ]);
+        $pet->update(['breed_id' => null]);
+
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->getJson("/api/v1/pets/{$pet->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.breed', null);
     }
 
     public function test_show_photos_ordered_by_position(): void
@@ -418,6 +593,7 @@ class PetCrudTest extends TestCase
     {
         $user = User::factory()->client()->create();
         $pet = Pet::factory()->create(['user_id' => $user->id, 'name' => 'Old Name']);
+        $breed = Breed::factory()->cat()->create();
 
         Sanctum::actingAs($user, ['*']);
 
@@ -426,15 +602,92 @@ class PetCrudTest extends TestCase
             'species' => 'CAT',
             'size' => 'SMALL',
             'sex' => 'FEMALE',
-            'breed' => 'Siamese',
-            'secondary_breed' => 'Persian',
+            'breed_id' => $breed->id,
             'primary_color' => 'White',
             'notes' => 'Updated notes',
         ]);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.name', 'New Name')
-            ->assertJsonPath('data.secondaryBreed', 'Persian');
+            ->assertJsonPath('data.breed.id', $breed->id);
+    }
+
+    public function test_update_switch_to_breed_description_only(): void
+    {
+        $user = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $pet = Pet::factory()->create([
+            'user_id' => $user->id,
+            'species' => 'DOG',
+            'breed_id' => $breed->id,
+        ]);
+
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->putJson("/api/v1/pets/{$pet->id}", [
+            'name' => $pet->name,
+            'species' => 'DOG',
+            'size' => $pet->size->value,
+            'sex' => $pet->sex->value,
+            'breed_id' => null,
+            'breed_description' => 'Mix desconhecido',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.breed', null)
+            ->assertJsonPath('data.breedDescription', 'Mix desconhecido');
+    }
+
+    public function test_update_clear_secondary_breed(): void
+    {
+        $user = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $secondary = Breed::factory()->dog()->create();
+        $pet = Pet::factory()->create([
+            'user_id' => $user->id,
+            'species' => 'DOG',
+            'breed_id' => $breed->id,
+            'secondary_breed_id' => $secondary->id,
+        ]);
+
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->putJson("/api/v1/pets/{$pet->id}", [
+            'name' => $pet->name,
+            'species' => 'DOG',
+            'size' => $pet->size->value,
+            'sex' => $pet->sex->value,
+            'breed_id' => $breed->id,
+            'secondary_breed_id' => null,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.secondaryBreed', null);
+
+        $this->assertDatabaseHas('pets', [
+            'id' => $pet->id,
+            'secondary_breed_id' => null,
+        ]);
+    }
+
+    public function test_update_with_breed_id_of_wrong_species_returns_422(): void
+    {
+        $user = User::factory()->client()->create();
+        $pet = Pet::factory()->create(['user_id' => $user->id, 'species' => 'DOG']);
+        $catBreed = Breed::factory()->cat()->create();
+
+        Sanctum::actingAs($user, ['*']);
+
+        $response = $this->putJson("/api/v1/pets/{$pet->id}", [
+            'name' => $pet->name,
+            'species' => 'DOG',
+            'size' => $pet->size->value,
+            'sex' => $pet->sex->value,
+            'breed_id' => $catBreed->id,
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['breed_id']);
     }
 
     public function test_update_adding_new_photos(): void

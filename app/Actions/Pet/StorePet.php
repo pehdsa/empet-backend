@@ -21,8 +21,9 @@ class StorePet
                 'species' => $data->species,
                 'size' => $data->size,
                 'sex' => $data->sex,
-                'breed' => $data->breed,
-                'secondary_breed' => $data->secondaryBreed,
+                'breed_id' => $data->breedId,
+                'secondary_breed_id' => $data->secondaryBreedId,
+                'breed_description' => $data->breedDescription,
                 'primary_color' => $data->primaryColor,
                 'notes' => $data->notes,
             ]);
@@ -44,7 +45,7 @@ class StorePet
                 $pet->characteristics()->sync($data->characteristicIds);
             }
 
-            return $pet->load(['photos', 'characteristics']);
+            return $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed']);
         });
     }
 }

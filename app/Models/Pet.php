@@ -27,8 +27,9 @@ class Pet extends Model
         'species',
         'size',
         'sex',
-        'breed',
-        'secondary_breed',
+        'breed_id',
+        'secondary_breed_id',
+        'breed_description',
         'primary_color',
         'notes',
         'is_active',
@@ -50,6 +51,16 @@ class Pet extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function breed(): BelongsTo
+    {
+        return $this->belongsTo(Breed::class, 'breed_id');
+    }
+
+    public function secondaryBreed(): BelongsTo
+    {
+        return $this->belongsTo(Breed::class, 'secondary_breed_id');
     }
 
     public function photos(): HasMany

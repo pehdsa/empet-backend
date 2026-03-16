@@ -37,7 +37,7 @@ class PetController extends Controller
         }
 
         $pets = $query
-            ->with(['photos', 'characteristics'])
+            ->with(['photos', 'characteristics', 'breed', 'secondaryBreed'])
             ->paginateFromRequest();
 
         return PetResource::collection($pets);
@@ -52,8 +52,9 @@ class PetController extends Controller
             species: PetSpecies::from($request->validated('species')),
             size: PetSize::from($request->validated('size')),
             sex: PetSex::from($request->validated('sex')),
-            breed: $request->validated('breed'),
-            secondaryBreed: $request->validated('secondary_breed'),
+            breedId: $request->validated('breed_id'),
+            secondaryBreedId: $request->validated('secondary_breed_id'),
+            breedDescription: $request->validated('breed_description'),
             primaryColor: $request->validated('primary_color'),
             notes: $request->validated('notes'),
             characteristicIds: $request->validated('characteristic_ids', []),
@@ -71,7 +72,7 @@ class PetController extends Controller
     {
         Gate::authorize('view', $pet);
 
-        $pet->load(['photos', 'characteristics']);
+        $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed']);
 
         return new PetResource($pet);
     }
@@ -86,8 +87,9 @@ class PetController extends Controller
             species: PetSpecies::from($request->validated('species')),
             size: PetSize::from($request->validated('size')),
             sex: PetSex::from($request->validated('sex')),
-            breed: $request->validated('breed'),
-            secondaryBreed: $request->validated('secondary_breed'),
+            breedId: $request->validated('breed_id'),
+            secondaryBreedId: $request->validated('secondary_breed_id'),
+            breedDescription: $request->validated('breed_description'),
             primaryColor: $request->validated('primary_color'),
             notes: $request->validated('notes'),
             characteristicIds: $request->has('characteristic_ids') ? $request->validated('characteristic_ids') : null,
@@ -117,7 +119,7 @@ class PetController extends Controller
 
         $pet->update(['is_active' => ! $pet->is_active]);
 
-        $pet->load(['photos', 'characteristics']);
+        $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed']);
 
         return new PetResource($pet);
     }
