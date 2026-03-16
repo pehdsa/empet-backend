@@ -16,5 +16,6 @@ Documentacao completa da API do backend Empet — plataforma de matching de pets
 - [Authentication](api/authentication.md) — Register, login, logout, alterar senha
 - [Pets](api/pets.md) — CRUD de pets + toggle active
 - [Pet Reports](api/pet-reports.md) — Reports de pets perdidos, matches, dismiss, confirm
+- [User Phones](api/user-phones.md) — Gerenciamento de telefones do usuario
 - [Breeds](api/breeds.md) — Listagem de racas
 - [Characteristics](api/characteristics.md) — Listagem de caracteristicas
