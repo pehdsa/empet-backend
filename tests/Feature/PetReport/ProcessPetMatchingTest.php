@@ -233,6 +233,385 @@ class ProcessPetMatchingTest extends TestCase
         $this->assertGreaterThan((float) $otherMatch->score, (float) $exactMatch->score);
     }
 
+    public function test_breed_score_returns_full_score_when_primary_breeds_match(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        $finderUser = User::factory()->client()->create();
+        $candidate = $this->createNearbyCandidate($finderUser, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $match = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidate->id)->first();
+        $this->assertNotNull($match);
+        // proximity (~11m ≈ 35) + breed exact (25) + size (10) + sex (10) + color (10) + characteristics (5) = ~95
+        $this->assertGreaterThan(90, (float) $match->score);
+    }
+
+    public function test_breed_score_returns_partial_when_primary_and_secondary_overlap(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breedA = Breed::factory()->dog()->create();
+        $breedB = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breedA->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        // Candidate whose secondary breed matches lost pet's primary breed
+        $finderUser = User::factory()->client()->create();
+        $candidate = $this->createNearbyCandidate($finderUser, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breedB->id,
+            'secondary_breed_id' => $breedA->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $match = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidate->id)->first();
+        $this->assertNotNull($match);
+        // proximity (~11m ≈ 35) + breed partial (12) + size (10) + sex (10) + color (0) + characteristics (5) = ~72
+        $this->assertGreaterThan(60, (float) $match->score);
+    }
+
+    public function test_breed_score_returns_zero_when_one_pet_has_no_breed(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        // Candidate without any breed (uncertainty — should be neutral, not penalised).
+        // The factory afterCreating hook always assigns a breed, so we force null after creation.
+        $finderUserNoBreed = User::factory()->client()->create();
+        $candidateNoBreed = $this->createNearbyCandidate($finderUserNoBreed, [
+            'species' => PetSpecies::Dog,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        Pet::where('id', $candidateNoBreed->id)->update(['breed_id' => null, 'secondary_breed_id' => null]);
+
+        // Candidate with exact breed match (reference)
+        $finderUserExact = User::factory()->client()->create();
+        $candidateExact = $this->createNearbyCandidate($finderUserExact, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $matchNoBreed = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateNoBreed->id)->first();
+        $matchExact = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateExact->id)->first();
+
+        // Both appear (no penalty for missing breed)
+        $this->assertNotNull($matchNoBreed);
+        $this->assertNotNull($matchExact);
+        // Exact breed scores higher, but no-breed candidate is not penalised
+        $this->assertGreaterThan((float) $matchNoBreed->score, (float) $matchExact->score);
+    }
+
+    public function test_breed_score_returns_negative_when_known_breed_sets_have_no_overlap(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breedA = Breed::factory()->dog()->create();
+        $breedB = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breedA->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        // Candidate with a completely different known breed (no overlap)
+        $finderUserMismatch = User::factory()->client()->create();
+        $candidateMismatch = $this->createNearbyCandidate($finderUserMismatch, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breedB->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+
+        // Candidate with no breed (uncertainty — neutral, no penalty).
+        // The factory afterCreating hook always assigns a breed, so we force null after creation.
+        $finderUserNoBreed = User::factory()->client()->create();
+        $candidateNoBreed = $this->createNearbyCandidate($finderUserNoBreed, [
+            'species' => PetSpecies::Dog,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        Pet::where('id', $candidateNoBreed->id)->update(['breed_id' => null, 'secondary_breed_id' => null]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $matchMismatch = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateMismatch->id)->first();
+        $matchNoBreed = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateNoBreed->id)->first();
+
+        $this->assertNotNull($matchMismatch);
+        $this->assertNotNull($matchNoBreed);
+        // Known mismatch (-15) must score lower than unknown breed (0)
+        $this->assertGreaterThan((float) $matchMismatch->score, (float) $matchNoBreed->score);
+    }
+
+    public function test_sex_score_ranks_known_match_above_unknown_above_mismatch(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        // Known matching sex → +10
+        $finderUser1 = User::factory()->client()->create();
+        $candidateSameKnown = $this->createNearbyCandidate($finderUser1, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+
+        // One unknown → +5 (UNKNOWN must not return +10 from equality check)
+        $finderUser2 = User::factory()->client()->create();
+        $candidateUnknown = $this->createNearbyCandidate($finderUser2, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Unknown,
+            'primary_color' => 'brown',
+        ]);
+
+        // Known mismatching sex → -10
+        $finderUser3 = User::factory()->client()->create();
+        $candidateOppositeSex = $this->createNearbyCandidate($finderUser3, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Female,
+            'primary_color' => 'brown',
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $matchSameKnown = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateSameKnown->id)->first();
+        $matchUnknown = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateUnknown->id)->first();
+        $matchOpposite = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateOppositeSex->id)->first();
+
+        $this->assertNotNull($matchSameKnown);
+        $this->assertNotNull($matchUnknown);
+        $this->assertNotNull($matchOpposite);
+
+        // +10 > +5 > -10
+        $this->assertGreaterThan((float) $matchUnknown->score, (float) $matchSameKnown->score);
+        $this->assertGreaterThan((float) $matchOpposite->score, (float) $matchUnknown->score);
+        // Score deltas must match expected differences: +10 vs +5 = 5pts, +5 vs -10 = 15pts
+        $this->assertEqualsWithDelta(5.0, (float) $matchSameKnown->score - (float) $matchUnknown->score, 0.01);
+        $this->assertEqualsWithDelta(15.0, (float) $matchUnknown->score - (float) $matchOpposite->score, 0.01);
+    }
+
+    public function test_sex_score_returns_negative_when_both_known_and_different(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        // Opposite sex (strong negative signal)
+        $finderUserOpposite = User::factory()->client()->create();
+        $candidateOppositeSex = $this->createNearbyCandidate($finderUserOpposite, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Female,
+        ]);
+
+        // Same sex (positive signal)
+        $finderUserSame = User::factory()->client()->create();
+        $candidateSameSex = $this->createNearbyCandidate($finderUserSame, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $matchOpposite = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateOppositeSex->id)->first();
+        $matchSame = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $candidateSameSex->id)->first();
+
+        $this->assertNotNull($matchOpposite);
+        $this->assertNotNull($matchSame);
+        // Sex mismatch (-10) must score lower than sex match (+10)
+        $this->assertGreaterThan((float) $matchOpposite->score, (float) $matchSame->score);
+    }
+
+    public function test_matching_ranks_breed_compatible_candidate_above_breed_mismatch(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breedA = Breed::factory()->dog()->create();
+        $breedB = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breedA->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        $finderUser1 = User::factory()->client()->create();
+        $compatibleBreedPet = $this->createNearbyCandidate($finderUser1, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breedA->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+
+        $finderUser2 = User::factory()->client()->create();
+        $mismatchBreedPet = $this->createNearbyCandidate($finderUser2, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breedB->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $matchCompatible = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $compatibleBreedPet->id)->first();
+        $matchMismatch = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $mismatchBreedPet->id)->first();
+
+        $this->assertNotNull($matchCompatible);
+        $this->assertNotNull($matchMismatch);
+        $this->assertGreaterThan((float) $matchMismatch->score, (float) $matchCompatible->score);
+    }
+
+    public function test_matching_ranks_sex_compatible_candidate_above_sex_mismatch(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breed = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id]);
+
+        $finderUser1 = User::factory()->client()->create();
+        $compatibleSexPet = $this->createNearbyCandidate($finderUser1, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+            'primary_color' => 'brown',
+        ]);
+
+        $finderUser2 = User::factory()->client()->create();
+        $mismatchSexPet = $this->createNearbyCandidate($finderUser2, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breed->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Female,
+            'primary_color' => 'brown',
+        ]);
+
+        (new ProcessPetMatching($report))->handle();
+
+        $matchCompatible = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $compatibleSexPet->id)->first();
+        $matchMismatch = PetMatch::where('report_id', $report->id)->where('matched_pet_id', $mismatchSexPet->id)->first();
+
+        $this->assertNotNull($matchCompatible);
+        $this->assertNotNull($matchMismatch);
+        $this->assertGreaterThan((float) $matchMismatch->score, (float) $matchCompatible->score);
+    }
+
+    public function test_matching_excludes_candidate_with_breed_and_sex_mismatch_below_threshold(): void
+    {
+        Notification::fake();
+
+        $owner = User::factory()->client()->create();
+        $breedA = Breed::factory()->dog()->create();
+        $breedB = Breed::factory()->dog()->create();
+        $lostPet = Pet::factory()->dog()->create([
+            'user_id' => $owner->id,
+            'breed_id' => $breedA->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Male,
+        ]);
+        // Place report far enough that proximity alone cannot compensate penalties
+        $report = $this->createReportWithLocation(['user_id' => $owner->id, 'pet_id' => $lostPet->id], -43.1729, -22.9068);
+
+        $finderUser = User::factory()->client()->create();
+        // 15km away, different breed (-15) and different sex (-10)
+        // proximity ~17.5 + breed -15 + size 10 + sex -10 + color 0 + chars 5 = ~7.5 — below threshold
+        $this->createNearbyCandidate($finderUser, [
+            'species' => PetSpecies::Dog,
+            'breed_id' => $breedB->id,
+            'size' => PetSize::Medium,
+            'sex' => PetSex::Female,
+        ], -43.3200, -22.9068); // ~15km west
+
+        (new ProcessPetMatching($report))->handle();
+
+        $this->assertEquals(0, PetMatch::where('report_id', $report->id)->count());
+    }
+
     // ──────────────────────────────────────────────
     // STATUS & LOCK
     // ──────────────────────────────────────────────
