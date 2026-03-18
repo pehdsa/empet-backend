@@ -8,13 +8,13 @@ use App\Models\PetReport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
-class PetMatchesFound extends Notification
+class PetLostNearby extends Notification
 {
     use Queueable;
 
     public function __construct(
         private readonly PetReport $report,
-        private readonly int $matchesCount,
+        private readonly float $distanceKm,
     ) {}
 
     /**
@@ -26,7 +26,7 @@ class PetMatchesFound extends Notification
     {
         $setting = $notifiable->notificationSetting;
 
-        if ($setting && ! $setting->notify_matches) {
+        if ($setting && ! $setting->notify_lost_nearby) {
             return [];
         }
 
@@ -43,7 +43,9 @@ class PetMatchesFound extends Notification
         return [
             'report_id' => $this->report->id,
             'pet_name' => $this->report->pet?->name,
-            'matches_count' => $this->matchesCount,
+            'pet_species' => $this->report->pet?->species?->value,
+            'address_hint' => $this->report->address_hint,
+            'distance_km' => round($this->distanceKm, 1),
         ];
     }
 
@@ -52,17 +54,18 @@ class PetMatchesFound extends Notification
      */
     public function toPush(object $notifiable): PushNotificationPayload
     {
-        $petName = $this->report->pet?->name ?? 'seu pet';
+        $petName = $this->report->pet?->name ?? 'Um pet';
+        $species = $this->report->pet?->species?->value ?? 'pet';
+        $addressHint = $this->report->address_hint ?? 'sua região';
 
         return new PushNotificationPayload(
-            title: 'Possíveis matches encontrados!',
-            body: "Encontramos {$this->matchesCount} pet(s) que podem ser {$petName}",
+            title: 'Pet perdido perto de você',
+            body: "{$petName} ({$species}) foi visto pela última vez próximo a {$addressHint}",
             data: [
-                'type' => 'matches_found',
+                'type' => 'lost_nearby',
                 'report_id' => $this->report->id,
-                'matches_count' => $this->matchesCount,
             ],
-            category: 'matches',
+            category: 'lost_nearby',
         );
     }
 }

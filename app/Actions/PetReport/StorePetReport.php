@@ -4,6 +4,7 @@ namespace App\Actions\PetReport;
 
 use App\DTOs\PetReport\StorePetReportData;
 use App\Enums\PetReportStatus;
+use App\Jobs\NotifyNearbyUsersOfLostPet;
 use App\Jobs\ProcessPetMatching;
 use App\Models\PetReport;
 use App\Models\User;
@@ -35,7 +36,10 @@ class StorePetReport
             return $report;
         });
 
-        DB::afterCommit(fn () => ProcessPetMatching::dispatch($report));
+        DB::afterCommit(function () use ($report) {
+            ProcessPetMatching::dispatch($report);
+            NotifyNearbyUsersOfLostPet::dispatch($report);
+        });
 
         return $report->load('pet');
     }
