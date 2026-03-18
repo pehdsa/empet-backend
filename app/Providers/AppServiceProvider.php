@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\PushNotificationService;
+use App\Services\Push\LogPushService;
+use App\Services\Push\OneSignalPushService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -16,7 +19,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            PushNotificationService::class,
+            $this->app->isProduction()
+                ? OneSignalPushService::class
+                : LogPushService::class,
+        );
     }
 
     /**
