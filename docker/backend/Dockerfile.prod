@@ -1,7 +1,7 @@
 FROM php:8.4-cli-alpine
 
 RUN apk add --no-cache \
-    bash curl git zip unzip \
+    bash curl zip unzip \
     icu-dev oniguruma-dev postgresql-dev linux-headers \
     libpng-dev libjpeg-turbo-dev freetype-dev $PHPIZE_DEPS \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -9,7 +9,8 @@ RUN apk add --no-cache \
  && pecl install igbinary \
  && pecl install --configureoptions='enable-redis-igbinary="yes"' redis \
  && docker-php-ext-enable igbinary redis \
- && rm -rf /tmp/pear
+ && rm -rf /tmp/pear \
+ && apk del $PHPIZE_DEPS
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -17,7 +18,17 @@ WORKDIR /var/www/html
 
 RUN addgroup -g 1000 app && adduser -D -G app -u 1000 app
 
-COPY docker/backend/entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chown=app:app . .
+
+RUN composer install --no-dev --no-interaction --optimize-autoloader \
+ && chmod -R 775 storage bootstrap/cache
+
+COPY docker/backend/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+USER app
+
 ENTRYPOINT ["entrypoint.sh"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
+EXPOSE 8000
