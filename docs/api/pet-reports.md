@@ -69,15 +69,23 @@
 |-------|------|-------------|---------|-----------|
 | pet_id | int | nao | — | Filtra por pet especifico |
 | status | string | nao | — | Filtro: `LOST`, `FOUND`, `CANCELLED` |
+| species | string | nao | — | Filtra por especie do pet: `DOG`, `CAT` (case-sensitive) |
+| size | string | nao | — | Filtra por porte do pet: `SMALL`, `MEDIUM`, `LARGE` (case-sensitive) |
 | latitude | numeric | nao | — | Latitude para busca por proximidade. `required_with: longitude` |
 | longitude | numeric | nao | — | Longitude para busca por proximidade. `required_with: latitude` |
 | radius_km | numeric | nao | 10 | Raio de busca em km (1-100) |
-| page | int | nao | 1 | Pagina |
-| per_page | int | nao | 15 | Itens por pagina |
+| paginate | string | nao | `true` | `false` para retorno nao paginado (cenario de mapa). Aceita apenas `true` ou `false` |
+| page | int | nao | 1 | Pagina (ignorado quando `paginate=false`) |
+| per_page | int | nao | 15 | Itens por pagina (ignorado quando `paginate=false`) |
 
 #### Response
 
-**Status:** 200 OK (paginado)
+**Formato condicional:**
+
+| `paginate` | Formato | Estrutura |
+|------------|---------|-----------|
+| `false` | Colecao simples | `{ "data": [...] }` — limite tecnico de 500 registros |
+| `true` ou ausente | Colecao paginada | `{ "data": [...], "meta": {...}, "links": {...} }` |
 
 #### Regras de Negocio
 
@@ -85,6 +93,16 @@
 - Admin ve todos os reports (com `user` eager-loaded)
 - Com `latitude` + `longitude`, filtra por proximidade via PostGIS `ST_DWithin` e ordena por distancia ASC
 - Sem `latitude`/`longitude`, nao aplica ordenacao explicita — a ordem de retorno nao deve ser considerada garantida
+- `species` e `size` filtram via relacionamento `pet` (`whereHas`)
+- `paginate=false` retorna colecao simples sem `meta`/`links`, com limite de 500 registros como protecao operacional. Ideal para uso em mapa onde paginacao esconderia marcadores
+
+#### Uso tipico para mapa
+
+```
+GET /api/v1/pet-reports?status=LOST&latitude=-23.55&longitude=-46.63&radius_km=20&paginate=false
+GET /api/v1/pet-reports?status=LOST&latitude=-23.55&longitude=-46.63&radius_km=20&species=DOG&paginate=false
+GET /api/v1/pet-reports?status=LOST&latitude=-23.55&longitude=-46.63&radius_km=20&species=CAT&size=SMALL&paginate=false
+```
 
 #### Status Codes
 
@@ -92,7 +110,7 @@
 |--------|--------|
 | 200 OK | Sucesso |
 | 401 Unauthorized | Token ausente/invalido |
-| 422 Unprocessable Entity | Validacao falhou (status invalido, lat sem lng, etc.) |
+| 422 Unprocessable Entity | Validacao falhou (status/species/size/paginate invalido, lat sem lng, etc.) |
 
 ---
 
