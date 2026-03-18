@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\PetMatchStatus;
 use App\Enums\PetReportStatus;
+use App\Enums\PetSex;
 use App\Models\Pet;
 use App\Models\PetMatch;
 use App\Models\PetReport;
@@ -183,27 +184,45 @@ class ProcessPetMatching implements ShouldQueue
     }
 
     /**
-     * Breed score: exact = 25, partial = 12, both null = 5, no match = 0.
+     * Breed score based on set intersection between known breeds of each pet.
+     *
+     * Both unknown = +5 (can't rule out)
+     * One unknown = 0 (uncertainty — neutral)
+     * Primary breeds match = +25
+     * Any other overlap (primary vs secondary) = +12
+     * Known breeds with no overlap = -15 (strong negative signal)
+     *
+     * Note: -15 is an initial heuristic and may be recalibrated after
+     * observing real match quality in production.
      */
     private function breedScore(Pet $lostPet, Pet $candidate): float
     {
+        $lostBreeds = array_values(array_filter(
+            [$lostPet->breed_id, $lostPet->secondary_breed_id],
+            fn ($id) => $id !== null
+        ));
+        $candidateBreeds = array_values(array_filter(
+            [$candidate->breed_id, $candidate->secondary_breed_id],
+            fn ($id) => $id !== null
+        ));
+
+        if (empty($lostBreeds) && empty($candidateBreeds)) {
+            return 5;
+        }
+
+        if (empty($lostBreeds) || empty($candidateBreeds)) {
+            return 0;
+        }
+
         if ($lostPet->breed_id !== null && $candidate->breed_id !== null && $lostPet->breed_id === $candidate->breed_id) {
             return 25;
         }
 
-        if ($lostPet->breed_id !== null && $candidate->secondary_breed_id !== null && $lostPet->breed_id === $candidate->secondary_breed_id) {
+        if (! empty(array_intersect($lostBreeds, $candidateBreeds))) {
             return 12;
         }
 
-        if ($lostPet->secondary_breed_id !== null && $candidate->breed_id !== null && $lostPet->secondary_breed_id === $candidate->breed_id) {
-            return 12;
-        }
-
-        if ($lostPet->breed_id === null && $candidate->breed_id === null) {
-            return 5;
-        }
-
-        return 0;
+        return -15;
     }
 
     /**
@@ -230,19 +249,31 @@ class ProcessPetMatching implements ShouldQueue
     }
 
     /**
-     * Sex score: exact = 10, one unknown = 5, different = 0.
+     * Sex score: both known and equal = +10, at least one unknown = +5,
+     * both known and different = -10 (strong negative signal).
+     *
+     * Note: UNKNOWN check must come before equality check to avoid
+     * UNKNOWN === UNKNOWN incorrectly returning +10.
+     *
+     * The -10 penalty equals 100% of this criterion's budget, reflecting
+     * that sex is easy to identify reliably in the field. When strong
+     * positive signals exist (e.g. exact breed match), the penalty adds
+     * negative evidence without necessarily dropping below the threshold.
+     *
+     * Note: -10 is an initial heuristic and may be recalibrated after
+     * observing real match quality in production.
      */
     private function sexScore(Pet $lostPet, Pet $candidate): float
     {
+        if ($lostPet->sex === PetSex::Unknown || $candidate->sex === PetSex::Unknown) {
+            return 5;
+        }
+
         if ($lostPet->sex === $candidate->sex) {
             return 10;
         }
 
-        if ($lostPet->sex->value === 'UNKNOWN' || $candidate->sex->value === 'UNKNOWN') {
-            return 5;
-        }
-
-        return 0;
+        return -10;
     }
 
     /**
