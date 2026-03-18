@@ -2,32 +2,27 @@
 
 namespace App\Models;
 
-use App\Enums\PetReportStatus;
-use Database\Factories\PetReportFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PetReport extends Model
+class PetSighting extends Model
 {
-    /** @use HasFactory<PetReportFactory> */
     use HasFactory, SoftDeletes;
 
     /**
      * @var list<string>
      */
     protected $fillable = [
-        'pet_id',
         'user_id',
-        'status',
+        'report_id',
         'location',
         'address_hint',
         'description',
-        'lost_at',
-        'found_at',
+        'sighted_at',
+        'share_phone',
         'is_active',
     ];
 
@@ -37,16 +32,10 @@ class PetReport extends Model
     protected function casts(): array
     {
         return [
-            'status' => PetReportStatus::class,
-            'lost_at' => 'datetime',
-            'found_at' => 'datetime',
+            'sighted_at' => 'datetime',
             'is_active' => 'boolean',
+            'share_phone' => 'boolean',
         ];
-    }
-
-    public function pet(): BelongsTo
-    {
-        return $this->belongsTo(Pet::class)->withTrashed();
     }
 
     public function user(): BelongsTo
@@ -54,14 +43,9 @@ class PetReport extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function matches(): HasMany
+    public function report(): BelongsTo
     {
-        return $this->hasMany(PetMatch::class, 'report_id');
-    }
-
-    public function sightings(): HasMany
-    {
-        return $this->hasMany(PetSighting::class, 'report_id');
+        return $this->belongsTo(PetReport::class, 'report_id');
     }
 
     /**
@@ -69,7 +53,7 @@ class PetReport extends Model
      */
     public function scopeWithCoordinates(Builder $query): Builder
     {
-        return $query->select('pet_reports.*')
+        return $query->select('pet_sightings.*')
             ->selectRaw('ST_Y(location::geometry) as latitude, ST_X(location::geometry) as longitude');
     }
 }
