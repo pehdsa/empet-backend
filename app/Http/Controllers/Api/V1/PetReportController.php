@@ -31,24 +31,26 @@ class PetReportController extends Controller
     {
         Gate::authorize('viewAny', PetReport::class);
 
+        $data = $request->validated();
+
         $query = $request->user()->role === UserRole::Admin
             ? PetReport::query()
             : $request->user()->petReports();
 
         $query->withCoordinates();
 
-        if ($request->validated('pet_id')) {
-            $query->where('pet_id', $request->validated('pet_id'));
+        if (! empty($data['pet_id'])) {
+            $query->where('pet_id', $data['pet_id']);
         }
 
-        if ($request->validated('status')) {
-            $query->where('status', $request->validated('status'));
+        if (! empty($data['status'])) {
+            $query->where('status', $data['status']);
         }
 
-        if ($request->validated('latitude') && $request->validated('longitude')) {
-            $lat = $request->validated('latitude');
-            $lng = $request->validated('longitude');
-            $radiusKm = $request->validated('radius_km', 10);
+        if (isset($data['latitude'], $data['longitude'])) {
+            $lat = $data['latitude'];
+            $lng = $data['longitude'];
+            $radiusKm = $data['radius_km'] ?? 10;
             $radiusMeters = $radiusKm * 1000;
 
             $query->whereRaw(
@@ -62,14 +64,31 @@ class PetReportController extends Controller
             );
         }
 
+        if (! empty($data['species']) || ! empty($data['size'])) {
+            $query->whereHas('pet', function ($q) use ($data) {
+                if (! empty($data['species'])) {
+                    $q->where('species', $data['species']);
+                }
+                if (! empty($data['size'])) {
+                    $q->where('size', $data['size']);
+                }
+            });
+        }
+
         $with = ['pet.photos'];
         if ($request->user()->role === UserRole::Admin) {
             $with[] = 'user';
         }
 
-        $reports = $query
-            ->with($with)
-            ->paginateFromRequest();
+        $skipPagination = ($data['paginate'] ?? null) === 'false';
+
+        if ($skipPagination) {
+            $reports = $query->with($with)->limit(500)->get();
+
+            return PetReportResource::collection($reports);
+        }
+
+        $reports = $query->with($with)->paginateFromRequest();
 
         return PetReportResource::collection($reports);
     }
