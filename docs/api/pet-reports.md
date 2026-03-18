@@ -373,6 +373,21 @@ Sem body.
 **Auth:** Bearer token
 **Policy:** viewMatches (Owner ou ADMIN)
 
+#### Algoritmo de Scoring
+
+Matches sao calculados pelo job `ProcessPetMatching`. O score e composto por 6 criterios (max 100 pts). Candidatos abaixo de 30 pts sao descartados. Maximo de 20 matches por report.
+
+| Criterio        | Valores                                                                 |
+|-----------------|-------------------------------------------------------------------------|
+| Proximidade     | 0–35 pts — decaimento linear de 0m (35pts) ate 25km (0pts)             |
+| Raca            | +25 primaria identica, +12 overlap primaria/secundaria, +5 ambas null, 0 um sem raca, **-15** ambas informadas sem intersecao |
+| Tamanho         | +10 exato, +4 diferenca de 1 nivel, 0 diferenca de 2+ niveis           |
+| Sexo            | +10 igual (ambos conhecidos), +5 pelo menos um desconhecido, **-10** ambos conhecidos e diferentes |
+| Cor primaria    | +10 exata, +3 ambas null, 0 caso contrario                             |
+| Caracteristicas | Jaccard × 10 (ambas vazias = +5)                                       |
+
+> Os valores de penalidade (-15 raca, -10 sexo) sao heuristicas iniciais e podem ser recalibrados. A penalidade reflete que mismatch em dado conhecido e evidencia contra ser o mesmo animal — sem descartar a possibilidade de erro de cadastro.
+
 #### Request
 
 **Query params:**
