@@ -6,13 +6,22 @@ use App\Actions\Auth\ChangePassword;
 use App\Actions\Auth\LoginUser;
 use App\Actions\Auth\LogoutUser;
 use App\Actions\Auth\RegisterUser;
+use App\Actions\Auth\ResetPassword;
+use App\Actions\Auth\SendPasswordResetCode;
+use App\Actions\Auth\VerifyPasswordResetCode;
 use App\DTOs\Auth\ChangePasswordData;
+use App\DTOs\Auth\ForgotPasswordData;
 use App\DTOs\Auth\LoginUserData;
 use App\DTOs\Auth\RegisterUserData;
+use App\DTOs\Auth\ResetPasswordData;
+use App\DTOs\Auth\VerifyResetCodeData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\VerifyResetCodeRequest;
 use App\Http\Resources\MessageResource;
 use App\Http\Resources\TokenResource;
 use Illuminate\Http\JsonResponse;
@@ -67,6 +76,46 @@ class AuthController extends Controller
         $action->handle(request()->user());
 
         return (new MessageResource('Logged out successfully.'))
+            ->response()
+            ->setStatusCode(200);
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request, SendPasswordResetCode $action): JsonResponse
+    {
+        $data = new ForgotPasswordData(
+            email: $request->validated('email'),
+        );
+
+        $action->handle($data);
+
+        return (new MessageResource('Se o e-mail estiver cadastrado, você receberá um código de recuperação.'))
+            ->response()
+            ->setStatusCode(200);
+    }
+
+    public function verifyResetCode(VerifyResetCodeRequest $request, VerifyPasswordResetCode $action): JsonResponse
+    {
+        $data = new VerifyResetCodeData(
+            email: $request->validated('email'),
+            code: $request->validated('code'),
+        );
+
+        $resetToken = $action->handle($data);
+
+        return response()->json(['resetToken' => $resetToken]);
+    }
+
+    public function resetPassword(ResetPasswordRequest $request, ResetPassword $action): JsonResponse
+    {
+        $data = new ResetPasswordData(
+            email: $request->validated('email'),
+            resetToken: $request->validated('resetToken'),
+            password: $request->validated('password'),
+        );
+
+        $action->handle($data);
+
+        return (new MessageResource('Senha redefinida com sucesso.'))
             ->response()
             ->setStatusCode(200);
     }
