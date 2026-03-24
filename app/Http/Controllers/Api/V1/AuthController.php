@@ -24,7 +24,9 @@ use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\VerifyResetCodeRequest;
 use App\Http\Resources\MessageResource;
 use App\Http\Resources\TokenResource;
+use App\Http\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
@@ -53,6 +55,13 @@ class AuthController extends Controller
         $result = $action->handle($data);
 
         return (new TokenResource($result))
+            ->response()
+            ->setStatusCode(200);
+    }
+
+    public function user(Request $request): JsonResponse
+    {
+        return (new UserResource($request->user()))
             ->response()
             ->setStatusCode(200);
     }
