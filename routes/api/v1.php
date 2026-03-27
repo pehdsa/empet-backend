@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('pets', PetController::class);
     Route::patch('pets/{pet}/toggle-active', [PetController::class, 'toggleActive']);
 
+    Route::get('pet-reports/lost/map', [PetReportController::class, 'lostMap']);
     Route::get('pet-reports/lost', [PetReportController::class, 'lost']);
     Route::get('pet-reports/found', [PetReportController::class, 'found']);
     Route::get('pet-reports/{petReport}/detail', [PetReportController::class, 'detail']);

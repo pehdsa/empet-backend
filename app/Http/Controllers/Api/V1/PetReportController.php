@@ -15,6 +15,7 @@ use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\PetReport\PetReportFoundRequest;
 use App\Http\Requests\PetReport\PetReportIndexRequest;
+use App\Http\Requests\PetReport\PetReportLostMapRequest;
 use App\Http\Requests\PetReport\PetReportLostRequest;
 use App\Http\Requests\PetReport\StorePetReportRequest;
 use App\Http\Requests\PetReport\UpdatePetReportRequest;
@@ -97,6 +98,48 @@ class PetReportController extends Controller
     }
 
     public function lost(PetReportLostRequest $request): AnonymousResourceCollection
+    {
+        Gate::authorize('viewLost', PetReport::class);
+
+        $data = $request->validated();
+        $lat = $data['latitude'];
+        $lng = $data['longitude'];
+
+        $query = PetReport::query()
+            ->where('status', PetReportStatus::Lost)
+            ->where('is_active', true)
+            ->whereHas('pet', fn ($q) => $q->whereNull('deleted_at'))
+            ->whereNotNull('location')
+            ->withCoordinates();
+
+        $query->selectRaw(
+            'ST_Distance(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) AS distance_meters',
+            [$lng, $lat]
+        );
+
+        if (! empty($data['species']) || ! empty($data['size'])) {
+            $query->whereHas('pet', function ($q) use ($data) {
+                if (! empty($data['species'])) {
+                    $q->where('species', $data['species']);
+                }
+                if (! empty($data['size'])) {
+                    $q->where('size', $data['size']);
+                }
+            });
+        }
+
+        $query->orderByRaw(
+            'ST_Distance(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) ASC',
+            [$lng, $lat]
+        );
+        $query->orderBy('id');
+
+        $reports = $query->with(['pet.photos'])->paginateFromRequest();
+
+        return PetReportResource::collection($reports);
+    }
+
+    public function lostMap(PetReportLostMapRequest $request): AnonymousResourceCollection
     {
         Gate::authorize('viewLost', PetReport::class);
 
