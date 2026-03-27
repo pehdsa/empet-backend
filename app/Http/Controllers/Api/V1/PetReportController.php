@@ -10,9 +10,12 @@ use App\Actions\PetReport\StorePetReport;
 use App\Actions\PetReport\UpdatePetReport;
 use App\DTOs\PetReport\StorePetReportData;
 use App\DTOs\PetReport\UpdatePetReportData;
+use App\Enums\PetReportStatus;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PetReport\PetReportFoundRequest;
 use App\Http\Requests\PetReport\PetReportIndexRequest;
+use App\Http\Requests\PetReport\PetReportLostRequest;
 use App\Http\Requests\PetReport\StorePetReportRequest;
 use App\Http\Requests\PetReport\UpdatePetReportRequest;
 use App\Http\Resources\PetMatchResource;
@@ -91,6 +94,91 @@ class PetReportController extends Controller
         $reports = $query->with($with)->paginateFromRequest();
 
         return PetReportResource::collection($reports);
+    }
+
+    public function lost(PetReportLostRequest $request): AnonymousResourceCollection
+    {
+        Gate::authorize('viewLost', PetReport::class);
+
+        $data = $request->validated();
+        $lat = $data['latitude'];
+        $lng = $data['longitude'];
+        $radiusMeters = ($data['radius_km'] ?? 10) * 1000;
+
+        $query = PetReport::query()
+            ->where('status', PetReportStatus::Lost)
+            ->where('is_active', true)
+            ->whereHas('pet', fn ($q) => $q->whereNull('deleted_at'))
+            ->whereNotNull('location')
+            ->withCoordinates();
+
+        $query->whereRaw(
+            'ST_DWithin(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)',
+            [$lng, $lat, $radiusMeters]
+        );
+
+        $query->orderByRaw(
+            'ST_Distance(location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography) ASC',
+            [$lng, $lat]
+        );
+
+        if (! empty($data['species']) || ! empty($data['size'])) {
+            $query->whereHas('pet', function ($q) use ($data) {
+                if (! empty($data['species'])) {
+                    $q->where('species', $data['species']);
+                }
+                if (! empty($data['size'])) {
+                    $q->where('size', $data['size']);
+                }
+            });
+        }
+
+        $reports = $query->with(['pet.photos'])->limit(500)->get();
+
+        return PetReportResource::collection($reports);
+    }
+
+    public function found(PetReportFoundRequest $request): AnonymousResourceCollection
+    {
+        Gate::authorize('viewFound', PetReport::class);
+
+        $data = $request->validated();
+
+        $query = PetReport::query()
+            ->where('status', PetReportStatus::Found)
+            ->where('is_active', true)
+            ->whereHas('pet', fn ($q) => $q->whereNull('deleted_at'))
+            ->withCoordinates();
+
+        if (! empty($data['species']) || ! empty($data['size'])) {
+            $query->whereHas('pet', function ($q) use ($data) {
+                if (! empty($data['species'])) {
+                    $q->where('species', $data['species']);
+                }
+                if (! empty($data['size'])) {
+                    $q->where('size', $data['size']);
+                }
+            });
+        }
+
+        $query->orderByDesc('found_at');
+
+        $reports = $query->with(['pet.photos'])->paginateFromRequest();
+
+        return PetReportResource::collection($reports);
+    }
+
+    public function detail(PetReport $petReport): PetReportResource
+    {
+        Gate::authorize('viewDetail', $petReport);
+
+        $petReport = PetReport::query()
+            ->withCoordinates()
+            ->withCount('sightings')
+            ->with(['pet.photos', 'pet.breed', 'pet.secondaryBreed', 'pet.characteristics'])
+            ->find($petReport->id);
+
+        return new PetReportResource($petReport);
     }
 
     public function store(StorePetReportRequest $request, StorePetReport $action): JsonResponse

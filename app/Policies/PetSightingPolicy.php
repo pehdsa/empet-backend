@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\PetReportStatus;
 use App\Enums\UserRole;
 use App\Models\PetReport;
 use App\Models\PetSighting;
@@ -22,6 +23,10 @@ class PetSightingPolicy
      */
     public function viewAny(User $user, PetReport $report): bool
     {
+        if (in_array($report->status, [PetReportStatus::Lost, PetReportStatus::Found])) {
+            return $user->role === UserRole::Client || $user->role === UserRole::Admin;
+        }
+
         return $user->id === $report->user_id || $user->role === UserRole::Admin;
     }
 

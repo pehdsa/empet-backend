@@ -37,6 +37,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('pets', PetController::class);
     Route::patch('pets/{pet}/toggle-active', [PetController::class, 'toggleActive']);
 
+    Route::get('pet-reports/lost', [PetReportController::class, 'lost']);
+    Route::get('pet-reports/found', [PetReportController::class, 'found']);
+    Route::get('pet-reports/{petReport}/detail', [PetReportController::class, 'detail']);
+
     Route::apiResource('pet-reports', PetReportController::class)->except(['destroy']);
     Route::patch('pet-reports/{petReport}/cancel', [PetReportController::class, 'cancel']);
     Route::patch('pet-reports/{petReport}/found', [PetReportController::class, 'markFound']);
