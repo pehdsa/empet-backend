@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\PetSighting;
 
+use App\Enums\PetReportStatus;
 use App\Models\Pet;
 use App\Models\PetReport;
 use App\Models\PetSighting;
@@ -349,10 +350,23 @@ class PetSightingTest extends TestCase
             ->assertJsonCount(1, 'data');
     }
 
-    public function test_index_forbidden_for_non_owner(): void
+    public function test_index_allowed_for_non_owner_on_lost_report(): void
     {
         $owner = User::factory()->create();
         $report = $this->createLostReportWithLocation($owner);
+
+        $otherUser = User::factory()->create();
+        Sanctum::actingAs($otherUser, ['*']);
+
+        $this->getJson("/api/v1/pet-reports/{$report->id}/sightings")
+            ->assertOk();
+    }
+
+    public function test_index_forbidden_for_non_owner_on_cancelled_report(): void
+    {
+        $owner = User::factory()->create();
+        $report = $this->createLostReportWithLocation($owner);
+        $report->update(['status' => PetReportStatus::Cancelled]);
 
         $otherUser = User::factory()->create();
         Sanctum::actingAs($otherUser, ['*']);
