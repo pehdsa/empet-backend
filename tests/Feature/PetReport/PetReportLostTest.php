@@ -43,10 +43,71 @@ class PetReportLostTest extends TestCase
         $this->createReportWithLocation(['pet_id' => $pet1->id, 'user_id' => $otherUser->id, 'status' => PetReportStatus::Lost]);
         $this->createReportWithLocation(['pet_id' => $pet2->id, 'user_id' => $user->id, 'status' => PetReportStatus::Lost]);
 
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=50');
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
 
         $response->assertOk();
         $response->assertJsonCount(2, 'data');
+    }
+
+    public function test_lost_returns_paginated_response(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $pet = Pet::factory()->create(['user_id' => $user->id]);
+        $this->createReportWithLocation(['pet_id' => $pet->id, 'user_id' => $user->id, 'status' => PetReportStatus::Lost]);
+
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
+
+        $response->assertOk();
+        $response->assertJsonStructure(['data', 'meta', 'links']);
+    }
+
+    public function test_lost_orders_by_distance_ascending(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $nearPet = Pet::factory()->create(['user_id' => $user->id]);
+        $farPet = Pet::factory()->create(['user_id' => $user->id]);
+
+        // Near: ~0km from reference
+        $nearReport = $this->createReportWithLocation(
+            ['pet_id' => $nearPet->id, 'user_id' => $user->id, 'status' => PetReportStatus::Lost],
+            lng: -54.6156,
+            lat: -20.4697
+        );
+        // Far: ~50km away
+        $farReport = $this->createReportWithLocation(
+            ['pet_id' => $farPet->id, 'user_id' => $user->id, 'status' => PetReportStatus::Lost],
+            lng: -54.2000,
+            lat: -20.2000
+        );
+
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.0.id', $nearReport->id);
+        $response->assertJsonPath('data.1.id', $farReport->id);
+    }
+
+    public function test_lost_returns_distance_meters_in_response(): void
+    {
+        $user = User::factory()->client()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $pet = Pet::factory()->create(['user_id' => $user->id]);
+        $this->createReportWithLocation(
+            ['pet_id' => $pet->id, 'user_id' => $user->id, 'status' => PetReportStatus::Lost],
+            lng: -54.6156,
+            lat: -20.4697
+        );
+
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
+
+        $response->assertOk();
+        $response->assertJsonStructure(['data' => [['distanceMeters']]]);
+        $this->assertIsNumeric($response->json('data.0.distanceMeters'));
     }
 
     public function test_lost_excludes_found_and_cancelled_reports(): void
@@ -62,7 +123,7 @@ class PetReportLostTest extends TestCase
         $this->createReportWithLocation(['pet_id' => $pet2->id, 'user_id' => $user->id, 'status' => PetReportStatus::Found, 'found_at' => now()]);
         $this->createReportWithLocation(['pet_id' => $pet3->id, 'user_id' => $user->id, 'status' => PetReportStatus::Cancelled]);
 
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=50');
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
@@ -82,7 +143,7 @@ class PetReportLostTest extends TestCase
 
         $deletedPet->delete();
 
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=50');
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
@@ -96,7 +157,7 @@ class PetReportLostTest extends TestCase
         $pet = Pet::factory()->create(['user_id' => $user->id]);
         $this->createReportWithLocation(['pet_id' => $pet->id, 'user_id' => $user->id]);
 
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=50');
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156');
 
         $response->assertOk();
         $response->assertJsonMissing(['user' => []]);
@@ -117,7 +178,7 @@ class PetReportLostTest extends TestCase
         $this->createReportWithLocation(['pet_id' => $dogPet->id, 'user_id' => $user->id]);
         $this->createReportWithLocation(['pet_id' => $catPet->id, 'user_id' => $user->id]);
 
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=50&species=DOG');
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&species=DOG');
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
@@ -135,30 +196,11 @@ class PetReportLostTest extends TestCase
         $this->createReportWithLocation(['pet_id' => $smallPet->id, 'user_id' => $user->id]);
         $this->createReportWithLocation(['pet_id' => $largePet->id, 'user_id' => $user->id]);
 
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=50&size=SMALL');
+        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&size=SMALL');
 
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.pet.size', 'SMALL');
-    }
-
-    public function test_lost_filters_by_radius(): void
-    {
-        $user = User::factory()->client()->create();
-        Sanctum::actingAs($user, ['*']);
-
-        $nearPet = Pet::factory()->create(['user_id' => $user->id]);
-        $farPet = Pet::factory()->create(['user_id' => $user->id]);
-
-        // Near: ~0km from reference
-        $this->createReportWithLocation(['pet_id' => $nearPet->id, 'user_id' => $user->id], lng: -54.6156, lat: -20.4697);
-        // Far: ~50km away
-        $this->createReportWithLocation(['pet_id' => $farPet->id, 'user_id' => $user->id], lng: -54.2000, lat: -20.2000);
-
-        $response = $this->getJson('/api/v1/pet-reports/lost?latitude=-20.4697&longitude=-54.6156&radius_km=5');
-
-        $response->assertOk();
-        $response->assertJsonCount(1, 'data');
     }
 
     // ──────────────────────────────────────────────
