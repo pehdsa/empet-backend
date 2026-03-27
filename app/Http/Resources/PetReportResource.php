@@ -37,6 +37,7 @@ class PetReportResource extends JsonResource
             'matches' => PetMatchResource::collection($this->whenLoaded('matches')),
             'matchesCount' => $this->whenCounted('matches'),
             'sightingsCount' => $this->whenCounted('sightings'),
+            'distanceMeters' => $this->when(isset($this->resource->distance_meters), fn () => round((float) $this->resource->distance_meters, 2)),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];
