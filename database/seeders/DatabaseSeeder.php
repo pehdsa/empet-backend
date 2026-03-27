@@ -25,5 +25,7 @@ class DatabaseSeeder extends Seeder
                 'email' => 'test@example.com',
             ])->toArray()
         );
+
+        $this->call(PetSeeder::class);
     }
 }
