@@ -29,7 +29,7 @@ class UpdatePetRequest extends FormRequest
             'breed_description' => ['nullable', 'string', 'max:255'],
             'primary_color' => ['nullable', 'string', 'max:100'],
             'new_photos' => ['nullable', 'array'],
-            'new_photos.*' => ['image', 'max:2048'],
+            'new_photos.*' => ['file', 'max:5120', 'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif'],
             'delete_photo_ids' => ['nullable', 'array'],
             'delete_photo_ids.*' => [
                 'integer',

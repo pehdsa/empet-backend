@@ -29,7 +29,7 @@ class StorePetRequest extends FormRequest
             'breed_description' => ['nullable', 'string', 'max:255'],
             'primary_color' => ['nullable', 'string', 'max:100'],
             'photos' => ['nullable', 'array', 'max:5'],
-            'photos.*' => ['image', 'max:2048'],
+            'photos.*' => ['file', 'max:5120', 'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'characteristic_ids' => ['nullable', 'array'],
             'characteristic_ids.*' => [
