@@ -5,11 +5,16 @@ namespace App\Actions\Pet;
 use App\DTOs\Pet\StorePetData;
 use App\Models\Pet;
 use App\Models\User;
+use App\Services\Image\ImageConverter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class StorePet
 {
+    public function __construct(
+        private readonly ImageConverter $imageConverter,
+    ) {}
+
     /**
      * Create a new pet for the given user.
      */
@@ -29,9 +34,11 @@ class StorePet
             ]);
 
             foreach ($data->photos as $position => $photo) {
-                $path = $photo->storeAs(
+                $converted = $this->imageConverter->toJpg($photo);
+
+                $path = $converted->storeAs(
                     'pets/photos',
-                    Str::ulid().'.'.$photo->getClientOriginalExtension(),
+                    Str::ulid().'.jpg',
                     's3',
                 );
 

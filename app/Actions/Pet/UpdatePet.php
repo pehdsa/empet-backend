@@ -4,12 +4,17 @@ namespace App\Actions\Pet;
 
 use App\DTOs\Pet\UpdatePetData;
 use App\Models\Pet;
+use App\Services\Image\ImageConverter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class UpdatePet
 {
+    public function __construct(
+        private readonly ImageConverter $imageConverter,
+    ) {}
+
     /**
      * Update an existing pet.
      */
@@ -44,9 +49,11 @@ class UpdatePet
 
                 foreach ($data->newPhotos as $photo) {
                     $maxPosition++;
-                    $path = $photo->storeAs(
+                    $converted = $this->imageConverter->toJpg($photo);
+
+                    $path = $converted->storeAs(
                         'pets/photos',
-                        Str::ulid().'.'.$photo->getClientOriginalExtension(),
+                        Str::ulid().'.jpg',
                         's3',
                     );
 
