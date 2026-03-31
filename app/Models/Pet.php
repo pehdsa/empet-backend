@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PetReportStatus;
 use App\Enums\PetSex;
 use App\Enums\PetSize;
 use App\Enums\PetSpecies;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Pet extends Model
@@ -77,5 +79,10 @@ class Pet extends Model
     public function reports(): HasMany
     {
         return $this->hasMany(PetReport::class);
+    }
+
+    public function activeReport(): HasOne
+    {
+        return $this->hasOne(PetReport::class)->where('status', PetReportStatus::Lost);
     }
 }
