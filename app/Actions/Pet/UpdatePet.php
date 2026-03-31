@@ -72,7 +72,7 @@ class UpdatePet
                 $pet->characteristics()->sync($data->characteristicIds);
             }
 
-            return $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed']);
+            return $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed', 'activeReport']);
         });
     }
 

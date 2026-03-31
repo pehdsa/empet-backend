@@ -32,6 +32,7 @@ class PetResource extends JsonResource
             'isActive' => $this->is_active,
             'photos' => PetPhotoResource::collection($this->whenLoaded('photos')),
             'characteristics' => CharacteristicResource::collection($this->whenLoaded('characteristics')),
+            'activeReportId' => $this->whenLoaded('activeReport', fn () => $this->activeReport?->id),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];

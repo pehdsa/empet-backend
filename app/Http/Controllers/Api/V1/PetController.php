@@ -37,7 +37,7 @@ class PetController extends Controller
         }
 
         $pets = $query
-            ->with(['photos', 'characteristics', 'breed', 'secondaryBreed'])
+            ->with(['photos', 'characteristics', 'breed', 'secondaryBreed', 'activeReport'])
             ->paginateFromRequest();
 
         return PetResource::collection($pets);
@@ -72,7 +72,7 @@ class PetController extends Controller
     {
         Gate::authorize('view', $pet);
 
-        $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed']);
+        $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed', 'activeReport']);
 
         return new PetResource($pet);
     }
@@ -119,7 +119,7 @@ class PetController extends Controller
 
         $pet->update(['is_active' => ! $pet->is_active]);
 
-        $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed']);
+        $pet->load(['photos', 'characteristics', 'breed', 'secondaryBreed', 'activeReport']);
 
         return new PetResource($pet);
     }
