@@ -21,11 +21,12 @@ class PetMatchResource extends JsonResource
         return [
             'id' => $this->id,
             'reportId' => $this->report_id,
-            'matchedPetId' => $this->matched_pet_id,
+            'sightingId' => $this->sighting_id,
             'score' => $this->score,
             'distanceMeters' => $this->distance_meters,
             'status' => $this->status->value,
-            'matchedPet' => new PetResource($this->whenLoaded('matchedPet')),
+            'sighting' => new PetSightingResource($this->whenLoaded('sighting')),
+            'isSightingDeleted' => $this->whenLoaded('sighting', fn () => $this->sighting?->trashed() ?? false),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];

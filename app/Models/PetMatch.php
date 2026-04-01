@@ -18,7 +18,7 @@ class PetMatch extends Model
      */
     protected $fillable = [
         'report_id',
-        'matched_pet_id',
+        'sighting_id',
         'score',
         'distance_meters',
         'status',
@@ -41,8 +41,8 @@ class PetMatch extends Model
         return $this->belongsTo(PetReport::class, 'report_id')->withTrashed();
     }
 
-    public function matchedPet(): BelongsTo
+    public function sighting(): BelongsTo
     {
-        return $this->belongsTo(Pet::class, 'matched_pet_id')->withTrashed();
+        return $this->belongsTo(PetSighting::class, 'sighting_id')->withTrashed();
     }
 }

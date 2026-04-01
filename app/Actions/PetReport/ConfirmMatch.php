@@ -23,6 +23,11 @@ class ConfirmMatch
 
         $markFound->handle($match->report, $match->id);
 
+        $match->report->matches()
+            ->where('id', '!=', $match->id)
+            ->where('status', PetMatchStatus::Dismissed)
+            ->delete();
+
         return $match->refresh()->load('report');
     }
 }

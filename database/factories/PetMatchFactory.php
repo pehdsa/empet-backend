@@ -3,9 +3,9 @@
 namespace Database\Factories;
 
 use App\Enums\PetMatchStatus;
-use App\Models\Pet;
 use App\Models\PetMatch;
 use App\Models\PetReport;
+use App\Models\PetSighting;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -20,7 +20,7 @@ class PetMatchFactory extends Factory
     {
         return [
             'report_id' => PetReport::factory(),
-            'matched_pet_id' => Pet::factory(),
+            'sighting_id' => PetSighting::factory(),
             'score' => fake()->randomFloat(2, 0, 100),
             'distance_meters' => fake()->randomFloat(2, 0, 50000),
             'status' => PetMatchStatus::Pending,
