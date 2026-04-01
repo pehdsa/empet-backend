@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\PetReport;
+use App\Enums\PetSpecies;
 use App\Models\PetSighting;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
  */
 class PetSightingFactory extends Factory
 {
+    protected $model = PetSighting::class;
+
     /**
      * @return array<string, mixed>
      */
@@ -20,17 +22,21 @@ class PetSightingFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'report_id' => PetReport::factory(),
+            'title' => fake()->sentence(4),
+            'description' => fake()->optional()->paragraph(),
+            'address_hint' => fake()->optional()->address(),
+            'sighted_at' => now(),
+            'species' => fake()->randomElement(PetSpecies::cases()),
+            'size' => null,
+            'sex' => null,
+            'color' => null,
+            'breed_id' => null,
+            'share_phone' => false,
             'location' => DB::raw(sprintf(
                 'ST_MakePoint(%s, %s)::geography',
                 fake()->longitude(-47.0, -46.0),
                 fake()->latitude(-24.0, -23.0),
             )),
-            'address_hint' => fake()->optional()->address(),
-            'description' => fake()->optional()->paragraph(),
-            'sighted_at' => now(),
-            'share_phone' => false,
-            'is_active' => true,
         ];
     }
 
@@ -41,10 +47,17 @@ class PetSightingFactory extends Factory
         ]);
     }
 
-    public function inactive(): static
+    public function dog(): static
     {
         return $this->state(fn (array $attributes) => [
-            'is_active' => false,
+            'species' => PetSpecies::Dog,
+        ]);
+    }
+
+    public function cat(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'species' => PetSpecies::Cat,
         ]);
     }
 }

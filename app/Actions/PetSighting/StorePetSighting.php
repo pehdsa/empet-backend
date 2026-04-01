@@ -3,57 +3,70 @@
 namespace App\Actions\PetSighting;
 
 use App\DTOs\PetSighting\StorePetSightingData;
+use App\Jobs\ProcessSightingMatching;
 use App\Models\PetSighting;
 use App\Models\User;
-use App\Notifications\PetSightingReported;
+use App\Services\Image\ImageConverter;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class StorePetSighting
 {
+    public function __construct(
+        private readonly ImageConverter $imageConverter,
+    ) {}
+
     /**
-     * Create a new pet sighting report.
-     *
-     * @return array{sighting: PetSighting, created: bool}
+     * Create a new independent pet sighting.
      */
-    public function handle(StorePetSightingData $data, User $user): array
+    public function handle(StorePetSightingData $data, User $user): PetSighting
     {
-        $existing = PetSighting::query()
-            ->where('user_id', $user->id)
-            ->where('report_id', $data->reportId)
-            ->where('created_at', '>=', now()->subMinutes(5))
-            ->first();
-
-        if ($existing) {
-            return ['sighting' => $existing, 'created' => false];
-        }
-
         $sighting = DB::transaction(function () use ($data, $user): PetSighting {
             $sighting = PetSighting::create([
                 'user_id' => $user->id,
-                'report_id' => $data->reportId,
+                'title' => $data->title,
+                'description' => $data->description,
+                'address_hint' => $data->addressHint,
+                'sighted_at' => $data->sightedAt,
+                'species' => $data->species,
+                'size' => $data->size,
+                'sex' => $data->sex,
+                'color' => $data->color,
+                'breed_id' => $data->breedId,
+                'share_phone' => $data->sharePhone,
                 'location' => DB::raw(sprintf(
                     'ST_MakePoint(%s, %s)::geography',
                     (float) $data->longitude,
                     (float) $data->latitude,
                 )),
-                'address_hint' => $data->addressHint,
-                'description' => $data->description,
-                'sighted_at' => $data->sightedAt,
-                'share_phone' => $data->sharePhone,
-                'is_active' => true,
             ]);
 
-            return $sighting;
+            foreach ($data->photos as $position => $photo) {
+                $converted = $this->imageConverter->toJpg($photo);
+
+                $path = $converted->storeAs(
+                    'sightings/photos',
+                    Str::ulid().'.jpg',
+                    's3',
+                );
+
+                $sighting->photos()->create([
+                    'path' => $path,
+                    'position' => $position,
+                ]);
+            }
+
+            if (! empty($data->characteristicIds)) {
+                $sighting->characteristics()->sync($data->characteristicIds);
+            }
+
+            return $sighting->load(['photos', 'characteristics', 'breed', 'user']);
         });
 
         DB::afterCommit(function () use ($sighting) {
-            $reportOwner = $sighting->report?->user;
-
-            if ($reportOwner) {
-                $reportOwner->notify(new PetSightingReported($sighting));
-            }
+            ProcessSightingMatching::dispatch($sighting);
         });
 
-        return ['sighting' => $sighting, 'created' => true];
+        return $sighting;
     }
 }

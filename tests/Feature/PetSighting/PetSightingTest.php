@@ -2,16 +2,13 @@
 
 namespace Tests\Feature\PetSighting;
 
-use App\Enums\PetReportStatus;
-use App\Models\Pet;
-use App\Models\PetReport;
+use App\Models\Breed;
+use App\Models\Characteristic;
 use App\Models\PetSighting;
 use App\Models\User;
-use App\Models\UserPhone;
-use App\Notifications\PetSightingReported;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -19,399 +16,394 @@ class PetSightingTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createLostReportWithLocation(User $owner, float $lat = -23.5505, float $lng = -46.6333): PetReport
+    private function sightingPayload(array $overrides = []): array
     {
-        $pet = Pet::factory()->create(['user_id' => $owner->id]);
-        $report = PetReport::factory()->lost()->create([
-            'user_id' => $owner->id,
-            'pet_id' => $pet->id,
-        ]);
-
-        DB::statement(
-            'UPDATE pet_reports SET location = ST_MakePoint(?, ?)::geography WHERE id = ?',
-            [$lng, $lat, $report->id]
-        );
-
-        return $report;
+        return array_merge([
+            'title' => 'Dog spotted near the park',
+            'latitude' => -23.5550,
+            'longitude' => -46.6380,
+            'sighted_at' => now()->subHour()->toIso8601String(),
+            'species' => 'DOG',
+        ], $overrides);
     }
 
     // ─── STORE ───────────────────────────────────────────────
 
-    public function test_store_creates_sighting_for_lost_report(): void
+    public function test_store_creates_sighting(): void
     {
-        Notification::fake();
+        Storage::fake('s3');
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
-
-        $response = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'address_hint' => 'Near the park',
-            'description' => 'Saw a dog matching the description',
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ]);
+        $response = $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'size' => 'MEDIUM',
+            'sex' => 'MALE',
+            'color' => 'marrom',
+            'address_hint' => 'Near Ibirapuera Park',
+            'description' => 'Dog without collar, friendly',
+        ]));
 
         $response->assertCreated()
-            ->assertJsonPath('data.reportId', $report->id)
-            ->assertJsonPath('data.userId', $sighter->id)
-            ->assertJsonPath('data.addressHint', 'Near the park');
+            ->assertJsonPath('data.title', 'Dog spotted near the park')
+            ->assertJsonPath('data.species', 'DOG')
+            ->assertJsonPath('data.size', 'MEDIUM')
+            ->assertJsonPath('data.sex', 'MALE')
+            ->assertJsonPath('data.color', 'marrom')
+            ->assertJsonPath('data.userId', $user->id);
 
         $this->assertDatabaseHas('pet_sightings', [
-            'report_id' => $report->id,
-            'user_id' => $sighter->id,
+            'user_id' => $user->id,
+            'title' => 'Dog spotted near the park',
+            'species' => 'DOG',
         ]);
     }
 
-    public function test_store_dispatches_notification_to_report_owner(): void
+    public function test_store_with_photos(): void
     {
-        Notification::fake();
+        Storage::fake('s3');
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
+        $response = $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'photos' => [
+                UploadedFile::fake()->image('photo1.jpg', 800, 600),
+                UploadedFile::fake()->image('photo2.jpg', 800, 600),
+            ],
+        ]));
 
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ])->assertCreated();
+        $response->assertCreated()
+            ->assertJsonCount(2, 'data.photos');
 
-        Notification::assertSentTo($owner, PetSightingReported::class);
+        $this->assertDatabaseCount('pet_sighting_photos', 2);
     }
 
-    public function test_store_with_share_phone_exposes_contact_to_owner(): void
+    public function test_store_with_characteristics(): void
     {
-        Notification::fake();
+        Storage::fake('s3');
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        UserPhone::factory()->primary()->create([
-            'user_id' => $sighter->id,
-            'phone' => '+5511999999999',
-        ]);
+        $chars = Characteristic::factory()->count(2)->create();
 
-        // First: sighter creates the sighting
-        Sanctum::actingAs($sighter, ['*']);
-        $response = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-            'share_phone' => true,
-        ]);
-        $response->assertCreated();
-        $sightingId = $response->json('data.id');
+        $response = $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'characteristic_ids' => $chars->pluck('id')->toArray(),
+        ]));
 
-        // Then: owner views the sighting and sees contactPhone
-        Sanctum::actingAs($owner, ['*']);
-        $showResponse = $this->getJson("/api/v1/pet-reports/{$report->id}/sightings/{$sightingId}");
-
-        $showResponse->assertOk()
-            ->assertJsonPath('data.contactPhone', '+5511999999999');
+        $response->assertCreated()
+            ->assertJsonCount(2, 'data.characteristics');
     }
 
-    public function test_store_without_share_phone_does_not_expose_contact(): void
+    public function test_store_with_breed(): void
     {
-        Notification::fake();
+        Storage::fake('s3');
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        UserPhone::factory()->primary()->create(['user_id' => $sighter->id]);
+        $breed = Breed::factory()->create(['species' => 'DOG']);
 
-        Sanctum::actingAs($sighter, ['*']);
-        $response = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-            'share_phone' => false,
-        ]);
-        $sightingId = $response->json('data.id');
+        $response = $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'breed_id' => $breed->id,
+        ]));
 
-        Sanctum::actingAs($owner, ['*']);
-        $showResponse = $this->getJson("/api/v1/pet-reports/{$report->id}/sightings/{$sightingId}");
-
-        $showResponse->assertOk()
-            ->assertJsonMissing(['contactPhone']);
+        $response->assertCreated()
+            ->assertJsonPath('data.breed.id', $breed->id);
     }
 
-    public function test_contact_phone_only_visible_to_report_owner(): void
+    public function test_store_rejects_breed_from_wrong_species(): void
     {
-        Notification::fake();
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $catBreed = Breed::factory()->create(['species' => 'CAT']);
 
-        $sighter = User::factory()->create();
-        UserPhone::factory()->primary()->create([
-            'user_id' => $sighter->id,
-            'phone' => '+5511888888888',
-        ]);
-
-        Sanctum::actingAs($sighter, ['*']);
-        $response = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-            'share_phone' => true,
-        ]);
-        $sightingId = $response->json('data.id');
-
-        // Another user (not owner) should NOT see contactPhone
-        $otherUser = User::factory()->admin()->create();
-        Sanctum::actingAs($otherUser, ['*']);
-
-        $showResponse = $this->getJson("/api/v1/pet-reports/{$report->id}/sightings/{$sightingId}");
-        $showResponse->assertOk()
-            ->assertJsonMissing(['contactPhone']);
+        $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'species' => 'DOG',
+            'breed_id' => $catBreed->id,
+        ]))->assertUnprocessable()
+            ->assertJsonValidationErrors(['breed_id']);
     }
 
-    public function test_contact_phone_not_shown_when_sighter_has_no_primary_phone(): void
+    public function test_store_accepts_unknown_sex(): void
     {
-        Notification::fake();
+        Storage::fake('s3');
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        // No primary phone created
+        $response = $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'sex' => 'UNKNOWN',
+        ]));
 
-        Sanctum::actingAs($sighter, ['*']);
-        $response = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-            'share_phone' => true,
-        ]);
-        $sightingId = $response->json('data.id');
-
-        Sanctum::actingAs($owner, ['*']);
-        $showResponse = $this->getJson("/api/v1/pet-reports/{$report->id}/sightings/{$sightingId}");
-
-        $showResponse->assertOk()
-            ->assertJsonPath('data.contactPhone', null);
+        $response->assertCreated()
+            ->assertJsonPath('data.sex', 'UNKNOWN');
     }
 
-    // ─── VALIDATION ─────────────────────────────────────────
-
-    public function test_cannot_sight_own_pet(): void
+    public function test_store_rejects_more_than_3_photos(): void
     {
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        Sanctum::actingAs($owner, ['*']);
-
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors(['report']);
+        $this->postJson('/api/v1/pet-sightings', $this->sightingPayload([
+            'photos' => [
+                UploadedFile::fake()->image('1.jpg'),
+                UploadedFile::fake()->image('2.jpg'),
+                UploadedFile::fake()->image('3.jpg'),
+                UploadedFile::fake()->image('4.jpg'),
+            ],
+        ]))->assertUnprocessable()
+            ->assertJsonValidationErrors(['photos']);
     }
 
-    public function test_cannot_sight_cancelled_report(): void
+    public function test_store_requires_title(): void
     {
-        $owner = User::factory()->create();
-        $pet = Pet::factory()->create(['user_id' => $owner->id]);
-        $report = PetReport::factory()->cancelled()->create([
-            'user_id' => $owner->id,
-            'pet_id' => $pet->id,
-        ]);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
+        $payload = $this->sightingPayload();
+        unset($payload['title']);
 
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors(['report']);
+        $this->postJson('/api/v1/pet-sightings', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['title']);
     }
 
-    public function test_cannot_sight_found_report(): void
+    public function test_store_requires_species(): void
     {
-        $owner = User::factory()->create();
-        $pet = Pet::factory()->create(['user_id' => $owner->id]);
-        $report = PetReport::factory()->found()->create([
-            'user_id' => $owner->id,
-            'pet_id' => $pet->id,
-        ]);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
+        $payload = $this->sightingPayload();
+        unset($payload['species']);
 
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors(['report']);
+        $this->postJson('/api/v1/pet-sightings', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['species']);
     }
 
-    public function test_cannot_sight_inactive_report(): void
+    public function test_store_requires_authentication(): void
     {
-        $owner = User::factory()->create();
-        $pet = Pet::factory()->create(['user_id' => $owner->id]);
-        $report = PetReport::factory()->lost()->create([
-            'user_id' => $owner->id,
-            'pet_id' => $pet->id,
-            'is_active' => false,
-        ]);
-
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
-
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ])->assertUnprocessable()
-            ->assertJsonValidationErrors(['report']);
+        $this->postJson('/api/v1/pet-sightings', $this->sightingPayload())
+            ->assertUnauthorized();
     }
 
-    // ─── DOUBLE SUBMIT ──────────────────────────────────────
-
-    public function test_double_submit_returns_existing_sighting(): void
+    public function test_store_forbidden_for_admin(): void
     {
-        Notification::fake();
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin, ['*']);
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
-
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
-
-        $payload = [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ];
-
-        $first = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", $payload);
-        $first->assertCreated();
-
-        $second = $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", $payload);
-        $second->assertOk(); // 200, not 201
-
-        $this->assertDatabaseCount('pet_sightings', 1);
-    }
-
-    public function test_double_submit_does_not_dispatch_notification(): void
-    {
-        Notification::fake();
-
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
-
-        $sighter = User::factory()->create();
-        Sanctum::actingAs($sighter, ['*']);
-
-        $payload = [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ];
-
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", $payload);
-        Notification::assertSentToTimes($owner, PetSightingReported::class, 1);
-
-        $this->postJson("/api/v1/pet-reports/{$report->id}/sightings", $payload);
-        Notification::assertSentToTimes($owner, PetSightingReported::class, 1);
+        $this->postJson('/api/v1/pet-sightings', $this->sightingPayload())
+            ->assertForbidden();
     }
 
     // ─── INDEX ───────────────────────────────────────────────
 
-    public function test_index_lists_sightings_for_report_owner(): void
+    public function test_index_returns_sightings_within_radius(): void
     {
-        Notification::fake();
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        PetSighting::factory()->count(3)->create();
 
-        $sighter = User::factory()->create();
-        PetSighting::factory()->create([
-            'user_id' => $sighter->id,
-            'report_id' => $report->id,
-        ]);
+        $response = $this->getJson('/api/v1/pet-sightings?latitude=-23.55&longitude=-46.63&radius_km=50');
 
-        Sanctum::actingAs($owner, ['*']);
-
-        $this->getJson("/api/v1/pet-reports/{$report->id}/sightings")
-            ->assertOk()
-            ->assertJsonCount(1, 'data');
+        $response->assertOk()
+            ->assertJsonStructure(['data', 'links', 'meta']);
     }
 
-    public function test_index_allowed_for_non_owner_on_lost_report(): void
+    public function test_index_requires_coordinates(): void
     {
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $otherUser = User::factory()->create();
-        Sanctum::actingAs($otherUser, ['*']);
-
-        $this->getJson("/api/v1/pet-reports/{$report->id}/sightings")
-            ->assertOk();
+        $this->getJson('/api/v1/pet-sightings')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['latitude', 'longitude']);
     }
 
-    public function test_index_forbidden_for_non_owner_on_cancelled_report(): void
+    public function test_index_filters_by_species(): void
     {
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
-        $report->update(['status' => PetReportStatus::Cancelled]);
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $otherUser = User::factory()->create();
-        Sanctum::actingAs($otherUser, ['*']);
+        PetSighting::factory()->dog()->count(2)->create();
+        PetSighting::factory()->cat()->create();
 
-        $this->getJson("/api/v1/pet-reports/{$report->id}/sightings")
-            ->assertForbidden();
+        $response = $this->getJson('/api/v1/pet-sightings?latitude=-23.55&longitude=-46.63&radius_km=50&species=DOG');
+
+        $response->assertOk();
+        $species = collect($response->json('data'))->pluck('species')->unique()->values()->all();
+        $this->assertEquals(['DOG'], $species);
+    }
+
+    public function test_index_rejects_radius_above_50(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $this->getJson('/api/v1/pet-sightings?latitude=-23.55&longitude=-46.63&radius_km=51')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['radius_km']);
+    }
+
+    public function test_index_rejects_radius_zero(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $this->getJson('/api/v1/pet-sightings?latitude=-23.55&longitude=-46.63&radius_km=0')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['radius_km']);
+    }
+
+    public function test_index_requires_authentication(): void
+    {
+        $this->getJson('/api/v1/pet-sightings?latitude=-23.55&longitude=-46.63')
+            ->assertUnauthorized();
+    }
+
+    public function test_index_excludes_soft_deleted(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        PetSighting::factory()->create();
+        $deleted = PetSighting::factory()->create();
+        $deleted->delete();
+
+        $response = $this->getJson('/api/v1/pet-sightings?latitude=-23.55&longitude=-46.63&radius_km=50');
+
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($deleted->id, $ids);
     }
 
     // ─── SHOW ───────────────────────────────────────────────
 
     public function test_show_returns_sighting_detail(): void
     {
-        Notification::fake();
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
 
-        $owner = User::factory()->create();
-        $report = $this->createLostReportWithLocation($owner);
+        $sighting = PetSighting::factory()->create();
 
-        $sighter = User::factory()->create();
-        $sighting = PetSighting::factory()->create([
-            'user_id' => $sighter->id,
-            'report_id' => $report->id,
-        ]);
-
-        Sanctum::actingAs($owner, ['*']);
-
-        $this->getJson("/api/v1/pet-reports/{$report->id}/sightings/{$sighting->id}")
+        $this->getJson("/api/v1/pet-sightings/{$sighting->id}")
             ->assertOk()
             ->assertJsonPath('data.id', $sighting->id)
-            ->assertJsonPath('data.reportId', $report->id);
+            ->assertJsonPath('data.title', $sighting->title);
     }
 
-    // ─── AUTH ───────────────────────────────────────────────
-
-    public function test_store_requires_authentication(): void
+    public function test_show_does_not_expose_contact_phone(): void
     {
-        $this->postJson('/api/v1/pet-reports/1/sightings', [
-            'latitude' => -23.5550,
-            'longitude' => -46.6380,
-            'sighted_at' => now()->subHour()->toIso8601String(),
-        ])->assertUnauthorized();
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $sighting = PetSighting::factory()->withSharePhone()->create();
+
+        $response = $this->getJson("/api/v1/pet-sightings/{$sighting->id}");
+
+        $response->assertOk();
+        $this->assertArrayNotHasKey('contactPhone', $response->json('data'));
     }
 
-    public function test_index_requires_authentication(): void
+    public function test_show_returns_user_summary_only(): void
     {
-        $this->getJson('/api/v1/pet-reports/1/sightings')
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $sighting = PetSighting::factory()->create();
+
+        $response = $this->getJson("/api/v1/pet-sightings/{$sighting->id}");
+
+        $response->assertOk();
+        $userData = $response->json('data.user');
+        $this->assertArrayHasKey('id', $userData);
+        $this->assertArrayHasKey('name', $userData);
+        $this->assertArrayHasKey('avatarUrl', $userData);
+        $this->assertArrayNotHasKey('email', $userData);
+        $this->assertArrayNotHasKey('role', $userData);
+    }
+
+    public function test_show_returns_404_for_soft_deleted(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $sighting = PetSighting::factory()->create();
+        $sighting->delete();
+
+        $this->getJson("/api/v1/pet-sightings/{$sighting->id}")
+            ->assertNotFound();
+    }
+
+    public function test_show_requires_authentication(): void
+    {
+        $sighting = PetSighting::factory()->create();
+
+        $this->getJson("/api/v1/pet-sightings/{$sighting->id}")
+            ->assertUnauthorized();
+    }
+
+    // ─── DELETE ──────────────────────────────────────────────
+
+    public function test_destroy_soft_deletes_sighting(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $sighting = PetSighting::factory()->create(['user_id' => $user->id]);
+
+        $this->deleteJson("/api/v1/pet-sightings/{$sighting->id}")
+            ->assertOk()
+            ->assertJsonPath('data.message', 'Sighting deleted successfully.');
+
+        $this->assertSoftDeleted('pet_sightings', ['id' => $sighting->id]);
+    }
+
+    public function test_destroy_allowed_for_admin(): void
+    {
+        $admin = User::factory()->admin()->create();
+        Sanctum::actingAs($admin, ['*']);
+
+        $sighting = PetSighting::factory()->create();
+
+        $this->deleteJson("/api/v1/pet-sightings/{$sighting->id}")
+            ->assertOk();
+
+        $this->assertSoftDeleted('pet_sightings', ['id' => $sighting->id]);
+    }
+
+    public function test_destroy_forbidden_for_non_owner(): void
+    {
+        $owner = User::factory()->create();
+        $other = User::factory()->create();
+        Sanctum::actingAs($other, ['*']);
+
+        $sighting = PetSighting::factory()->create(['user_id' => $owner->id]);
+
+        $this->deleteJson("/api/v1/pet-sightings/{$sighting->id}")
+            ->assertForbidden();
+    }
+
+    public function test_destroy_returns_404_for_already_deleted(): void
+    {
+        $user = User::factory()->create();
+        Sanctum::actingAs($user, ['*']);
+
+        $sighting = PetSighting::factory()->create(['user_id' => $user->id]);
+        $sighting->delete();
+
+        $this->deleteJson("/api/v1/pet-sightings/{$sighting->id}")
+            ->assertNotFound();
+    }
+
+    public function test_destroy_requires_authentication(): void
+    {
+        $sighting = PetSighting::factory()->create();
+
+        $this->deleteJson("/api/v1/pet-sightings/{$sighting->id}")
             ->assertUnauthorized();
     }
 }

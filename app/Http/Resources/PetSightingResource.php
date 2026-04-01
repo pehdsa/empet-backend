@@ -18,10 +18,17 @@ class PetSightingResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $data = [
+        return [
             'id' => $this->id,
-            'reportId' => $this->report_id,
             'userId' => $this->user_id,
+            'title' => $this->title,
+            'species' => $this->species?->value,
+            'size' => $this->size?->value,
+            'sex' => $this->sex?->value,
+            'color' => $this->color,
+            'breed' => new BreedResource($this->whenLoaded('breed')),
+            'photos' => PetSightingPhotoResource::collection($this->whenLoaded('photos')),
+            'characteristics' => CharacteristicResource::collection($this->whenLoaded('characteristics')),
             'location' => [
                 'latitude' => $this->latitude ?? null,
                 'longitude' => $this->longitude ?? null,
@@ -30,44 +37,14 @@ class PetSightingResource extends JsonResource
             'description' => $this->description,
             'sightedAt' => $this->sighted_at,
             'sharePhone' => $this->share_phone,
-            'isActive' => $this->is_active,
-            'user' => new UserResource($this->whenLoaded('user')),
+            'user' => $this->whenLoaded('user', fn () => [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'avatarUrl' => $this->user->avatar_url,
+            ]),
+            'distanceMeters' => $this->when(isset($this->resource->distance_meters), fn () => round((float) $this->resource->distance_meters, 2)),
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
         ];
-
-        $data = $this->appendContactPhone($data, $request);
-
-        return $data;
-    }
-
-    /**
-     * Append contactPhone only when share_phone is true and the requester is the report owner.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function appendContactPhone(array $data, Request $request): array
-    {
-        if (! $this->share_phone) {
-            return $data;
-        }
-
-        $reportOwnerId = $this->report?->user_id;
-        $authUserId = $request->user()?->id;
-
-        if (! $reportOwnerId || ! $authUserId || $reportOwnerId !== $authUserId) {
-            return $data;
-        }
-
-        $primaryPhone = $this->whenLoaded('user', function () {
-            return $this->user->phones
-                ->first(fn ($phone) => $phone->is_primary)
-                ?->phone;
-        });
-
-        $data['contactPhone'] = $primaryPhone;
-
-        return $data;
     }
 }

@@ -2,10 +2,8 @@
 
 namespace App\Http\Requests\PetSighting;
 
-use App\Enums\PetReportStatus;
-use App\Models\PetReport;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Validator;
+use Illuminate\Validation\Rule;
 
 class StorePetSightingRequest extends FormRequest
 {
@@ -17,44 +15,27 @@ class StorePetSightingRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'title' => ['required', 'string', 'max:255'],
             'latitude' => ['required', 'numeric', 'between:-90,90'],
             'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'sighted_at' => ['required', 'date', 'before_or_equal:now'],
+            'species' => ['required', 'string', 'in:DOG,CAT'],
+            'size' => ['nullable', 'string', 'in:SMALL,MEDIUM,LARGE'],
+            'sex' => ['nullable', 'string', 'in:MALE,FEMALE,UNKNOWN'],
+            'color' => ['nullable', 'string', 'max:100'],
+            'breed_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('breeds', 'id')->where('species', $this->species),
+            ],
             'address_hint' => ['nullable', 'string', 'max:500'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'sighted_at' => ['required', 'date', 'before_or_equal:now'],
             'share_phone' => ['sometimes', 'boolean'],
+            'characteristic_ids' => ['nullable', 'array'],
+            'characteristic_ids.*' => ['integer', 'exists:characteristics,id'],
+            'photos' => ['nullable', 'array', 'max:3'],
+            'photos.*' => ['file', 'max:5120', 'mimetypes:image/jpeg,image/png,image/webp,image/heic,image/heif'],
         ];
-    }
-
-    /**
-     * Configure the validator instance.
-     */
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $validator): void {
-            /** @var PetReport|null $petReport */
-            $petReport = $this->route('petReport');
-
-            if (! $petReport) {
-                return;
-            }
-
-            if ($petReport->status !== PetReportStatus::Lost) {
-                $validator->errors()->add('report', 'Sightings can only be reported for lost pets.');
-
-                return;
-            }
-
-            if (! $petReport->is_active) {
-                $validator->errors()->add('report', 'This report is no longer active.');
-
-                return;
-            }
-
-            if ($petReport->user_id === $this->user()->id) {
-                $validator->errors()->add('report', 'You cannot report a sighting of your own pet.');
-            }
-        });
     }
 
     /**
@@ -66,6 +47,7 @@ class StorePetSightingRequest extends FormRequest
     {
         return [
             'sighted_at.before_or_equal' => 'The sighting date cannot be in the future.',
+            'breed_id.exists' => 'The selected breed does not belong to the specified species.',
         ];
     }
 }
