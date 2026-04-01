@@ -217,7 +217,7 @@ class PetReportController extends Controller
 
         $petReport = PetReport::query()
             ->withCoordinates()
-            ->withCount('sightings')
+            ->withCount('reportSightings')
             ->with(['pet.photos', 'pet.breed', 'pet.secondaryBreed', 'pet.characteristics'])
             ->find($petReport->id);
 
@@ -336,7 +336,9 @@ class PetReportController extends Controller
 
         $matches = $petReport->matches()
             ->where('status', $status)
-            ->with(['matchedPet.photos', 'matchedPet.characteristics', 'matchedPet.breed', 'matchedPet.secondaryBreed'])
+            ->with([
+                'sighting.photos', 'sighting.characteristics', 'sighting.breed', 'sighting.user:id,name,avatar_url',
+            ])
             ->orderByDesc('score')
             ->orderBy('distance_meters')
             ->orderBy('id')

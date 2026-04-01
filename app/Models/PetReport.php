@@ -59,9 +59,9 @@ class PetReport extends Model
         return $this->hasMany(PetMatch::class, 'report_id');
     }
 
-    public function sightings(): HasMany
+    public function reportSightings(): HasMany
     {
-        return $this->hasMany(PetSighting::class, 'report_id');
+        return $this->hasMany(PetReportSighting::class, 'report_id');
     }
 
     /**

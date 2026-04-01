@@ -17,6 +17,7 @@ class DatabaseNotificationResource extends JsonResource
     private const TYPE_MAP = [
         'App\Notifications\PetLostNearby' => 'pet_lost_nearby',
         'App\Notifications\PetMatchesFound' => 'matches_found',
+        'App\Notifications\PetReportSightingReported' => 'pet_report_sighting_reported',
         'App\Notifications\PetSightingReported' => 'pet_sighting_reported',
     ];
 

@@ -83,6 +83,11 @@ class User extends Authenticatable
         return $this->hasOne(UserNotificationSetting::class);
     }
 
+    public function reportSightings(): HasMany
+    {
+        return $this->hasMany(PetReportSighting::class);
+    }
+
     public function sightings(): HasMany
     {
         return $this->hasMany(PetSighting::class);

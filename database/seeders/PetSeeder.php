@@ -13,6 +13,7 @@ use App\Models\Pet;
 use App\Models\PetMatch;
 use App\Models\PetPhoto;
 use App\Models\PetReport;
+use App\Models\PetReportSighting;
 use App\Models\PetSighting;
 use App\Models\User;
 use App\Models\UserPhone;
@@ -62,7 +63,7 @@ class PetSeeder extends Seeder
 
         $this->createSightings($reports, $testUser, $owner2, $witness);
 
-        $this->createMatches($reports, $pets);
+        $this->createMatches($reports);
     }
 
     /**
@@ -86,16 +87,24 @@ class PetSeeder extends Seeder
             ? PetReport::withTrashed()->whereIn('pet_id', $petIds)->pluck('id')
             : collect();
 
+        // Clean up independent sightings owned by seeded users
+        if ($userIds->isNotEmpty()) {
+            $sightingIds = PetSighting::withTrashed()->whereIn('user_id', $userIds)->pluck('id');
+            if ($sightingIds->isNotEmpty()) {
+                PetMatch::query()->whereIn('sighting_id', $sightingIds)->delete();
+                DB::table('pet_sighting_characteristics')->whereIn('pet_sighting_id', $sightingIds)->delete();
+                DB::table('pet_sighting_photos')->whereIn('pet_sighting_id', $sightingIds)->delete();
+                PetSighting::withTrashed()->whereIn('id', $sightingIds)->forceDelete();
+            }
+        }
+
         // Delete in FK-safe order
         if ($reportIds->isNotEmpty()) {
             PetMatch::query()
-                ->where(function ($q) use ($reportIds, $petIds) {
-                    $q->whereIn('report_id', $reportIds)
-                        ->orWhereIn('matched_pet_id', $petIds);
-                })
+                ->whereIn('report_id', $reportIds)
                 ->delete();
 
-            PetSighting::withTrashed()
+            PetReportSighting::withTrashed()
                 ->whereIn('report_id', $reportIds)
                 ->forceDelete();
 
@@ -583,7 +592,7 @@ class PetSeeder extends Seeder
         User $witness,
     ): void {
         // S1: R1, witness, sem share_phone, ativo
-        PetSighting::factory()->create([
+        PetReportSighting::factory()->create([
             'report_id' => $reports['R1']->id,
             'user_id' => $witness->id,
             'location' => $this->geographyPoint(-54.6100, -20.4750),
@@ -594,7 +603,7 @@ class PetSeeder extends Seeder
         ]);
 
         // S2: R1, owner2, com share_phone, ativo
-        PetSighting::factory()->withSharePhone()->create([
+        PetReportSighting::factory()->withSharePhone()->create([
             'report_id' => $reports['R1']->id,
             'user_id' => $owner2->id,
             'location' => $this->geographyPoint(-54.5900, -20.4550),
@@ -604,7 +613,7 @@ class PetSeeder extends Seeder
         ]);
 
         // S3: R1, witness, sem share_phone, INATIVO
-        PetSighting::factory()->inactive()->create([
+        PetReportSighting::factory()->inactive()->create([
             'report_id' => $reports['R1']->id,
             'user_id' => $witness->id,
             'location' => $this->geographyPoint(-54.6050, -20.4650),
@@ -615,7 +624,7 @@ class PetSeeder extends Seeder
         ]);
 
         // S4: R4, test user, com share_phone, ativo
-        PetSighting::factory()->withSharePhone()->create([
+        PetReportSighting::factory()->withSharePhone()->create([
             'report_id' => $reports['R4']->id,
             'user_id' => $testUser->id,
             'location' => $this->geographyPoint(-54.6400, -20.4480),
@@ -631,29 +640,34 @@ class PetSeeder extends Seeder
      * @param  array<string, PetReport>  $reports
      * @param  array<int, Pet>  $pets
      */
-    private function createMatches(array $reports, array $pets): void
+    private function createMatches(array $reports): void
     {
-        // M1: R1 (Pet 1, test) -> Pet 8 (owner2), Pending, score alto
+        // Create sightings for matches
+        $s1 = PetSighting::factory()->dog()->create(['title' => 'Dog near Ibirapuera']);
+        $s2 = PetSighting::factory()->dog()->create(['title' => 'Dog at Paulista']);
+        $s3 = PetSighting::factory()->dog()->create(['title' => 'Dog far away']);
+
+        // M1: R1 -> Sighting 1, Pending, score alto
         PetMatch::factory()->create([
             'report_id' => $reports['R1']->id,
-            'matched_pet_id' => $pets[8]->id,
+            'sighting_id' => $s1->id,
             'score' => 85.50,
             'distance_meters' => 1200.00,
             'status' => PetMatchStatus::Pending,
         ]);
 
-        // M2: R4 (Pet 8, owner2) -> Pet 1 (test), Confirmed, cross-owner reverso
+        // M2: R4 -> Sighting 2, Confirmed
         PetMatch::factory()->confirmed()->create([
             'report_id' => $reports['R4']->id,
-            'matched_pet_id' => $pets[1]->id,
+            'sighting_id' => $s2->id,
             'score' => 72.30,
             'distance_meters' => 1200.00,
         ]);
 
-        // M3: R1 (Pet 1, test) -> Pet 10 (witness), Dismissed, score baixo
+        // M3: R1 -> Sighting 3, Dismissed, score baixo
         PetMatch::factory()->dismissed()->create([
             'report_id' => $reports['R1']->id,
-            'matched_pet_id' => $pets[10]->id,
+            'sighting_id' => $s3->id,
             'score' => 30.00,
             'distance_meters' => 15000.00,
         ]);

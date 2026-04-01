@@ -5,7 +5,7 @@ namespace App\Actions\PetReport;
 use App\DTOs\PetReport\UpdatePetReportData;
 use App\Enums\PetMatchStatus;
 use App\Enums\PetReportStatus;
-use App\Jobs\ProcessPetMatching;
+use App\Jobs\ProcessReportSightingMatching;
 use App\Models\PetReport;
 use Illuminate\Support\Facades\DB;
 
@@ -64,7 +64,7 @@ class UpdatePetReport
         });
 
         if ($locationChanged) {
-            DB::afterCommit(fn () => ProcessPetMatching::dispatch($report));
+            DB::afterCommit(fn () => ProcessReportSightingMatching::dispatch($report));
         }
 
         return $report->load(['pet', 'matches']);

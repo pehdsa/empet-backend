@@ -4,7 +4,7 @@ namespace Tests\Feature\PetReport;
 
 use App\Enums\PetMatchStatus;
 use App\Enums\PetReportStatus;
-use App\Jobs\ProcessPetMatching;
+use App\Jobs\ProcessReportSightingMatching;
 use App\Models\Pet;
 use App\Models\PetMatch;
 use App\Models\PetReport;
@@ -75,7 +75,7 @@ class PetReportCrudTest extends TestCase
             'lost_at' => now()->subHour()->toDateTimeString(),
         ]);
 
-        Queue::assertPushed(ProcessPetMatching::class);
+        Queue::assertPushed(ProcessReportSightingMatching::class);
     }
 
     public function test_store_report_has_status_lost_and_is_active(): void
@@ -456,7 +456,7 @@ class PetReportCrudTest extends TestCase
             'status' => PetMatchStatus::Dismissed->value,
         ]);
 
-        Queue::assertPushed(ProcessPetMatching::class);
+        Queue::assertPushed(ProcessReportSightingMatching::class);
     }
 
     public function test_update_client_cannot_update_others_report(): void

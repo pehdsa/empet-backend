@@ -56,7 +56,7 @@ class PetMatchesFound extends Notification
 
         return new PushNotificationPayload(
             title: 'Possíveis matches encontrados!',
-            body: "Encontramos {$this->matchesCount} pet(s) que podem ser {$petName}",
+            body: "Encontramos {$this->matchesCount} avistamento(s) que podem ser {$petName}",
             data: [
                 'type' => 'matches_found',
                 'report_id' => $this->report->id,

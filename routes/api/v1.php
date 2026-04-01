@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\NotificationSettingController;
 use App\Http\Controllers\Api\V1\PetController;
 use App\Http\Controllers\Api\V1\PetReportController;
+use App\Http\Controllers\Api\V1\PetReportSightingController;
 use App\Http\Controllers\Api\V1\PetSightingController;
 use App\Http\Controllers\Api\V1\UserDeviceController;
 use App\Http\Controllers\Api\V1\UserPhoneController;
@@ -71,10 +72,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('user/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::get('user/notifications/unread-count', [NotificationController::class, 'unreadCount']);
 
-    // Pet Sightings (nested under pet-reports)
-    Route::get('pet-reports/{petReport}/sightings', [PetSightingController::class, 'index']);
-    Route::post('pet-reports/{petReport}/sightings', [PetSightingController::class, 'store']);
-    Route::get('pet-reports/{petReport}/sightings/{petSighting}', [PetSightingController::class, 'show']);
+    // Pet Report Sightings (nested under pet-reports)
+    Route::get('pet-reports/{petReport}/sightings', [PetReportSightingController::class, 'index']);
+    Route::post('pet-reports/{petReport}/sightings', [PetReportSightingController::class, 'store']);
+    Route::get('pet-reports/{petReport}/sightings/{petReportSighting}', [PetReportSightingController::class, 'show']);
+
+    // Pet Sightings (independent)
+    Route::get('pet-sightings/map', [PetSightingController::class, 'map']);
+    Route::apiResource('pet-sightings', PetSightingController::class)
+        ->only(['index', 'store', 'show', 'destroy']);
 
     Route::get('breeds', [BreedController::class, 'index']);
     Route::get('characteristics', [CharacteristicController::class, 'index']);

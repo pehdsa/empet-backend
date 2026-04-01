@@ -7,6 +7,7 @@ use App\Enums\PetReportStatus;
 use App\Models\Pet;
 use App\Models\PetMatch;
 use App\Models\PetReport;
+use App\Models\PetSighting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -65,13 +66,13 @@ class PetReportMatchTest extends TestCase
             ->assertJsonPath('data.0.status', 'DISMISSED');
     }
 
-    public function test_matches_includes_matched_pet_with_photos_and_characteristics(): void
+    public function test_matches_includes_sighting_with_photos_and_characteristics(): void
     {
         $user = User::factory()->client()->create();
         $report = $this->createReportWithLocation(['user_id' => $user->id, 'pet_id' => Pet::factory()->create(['user_id' => $user->id])->id]);
 
-        $matchedPet = Pet::factory()->create();
-        PetMatch::factory()->create(['report_id' => $report->id, 'matched_pet_id' => $matchedPet->id, 'status' => PetMatchStatus::Pending]);
+        $sighting = PetSighting::factory()->create();
+        PetMatch::factory()->create(['report_id' => $report->id, 'sighting_id' => $sighting->id, 'status' => PetMatchStatus::Pending]);
 
         Sanctum::actingAs($user, ['*']);
 
@@ -80,7 +81,7 @@ class PetReportMatchTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data' => [
-                    ['id', 'reportId', 'matchedPetId', 'score', 'distanceMeters', 'status', 'matchedPet'],
+                    ['id', 'reportId', 'sightingId', 'score', 'distanceMeters', 'status', 'sighting'],
                 ],
             ]);
     }
@@ -232,7 +233,7 @@ class PetReportMatchTest extends TestCase
         $this->assertDatabaseHas('pet_reports', ['id' => $report->id, 'status' => PetReportStatus::Found->value]);
         $this->assertNotNull($report->fresh()->found_at);
         $this->assertDatabaseHas('pet_matches', ['id' => $match->id, 'status' => PetMatchStatus::Confirmed->value]);
-        $this->assertDatabaseHas('pet_matches', ['id' => $otherMatch->id, 'status' => PetMatchStatus::Dismissed->value]);
+        $this->assertDatabaseMissing('pet_matches', ['id' => $otherMatch->id]);
     }
 
     public function test_confirm_match_returns_422_when_already_dismissed(): void

@@ -5,7 +5,7 @@ namespace Tests\Feature\PetReport;
 use App\Enums\PetReportStatus;
 use App\Models\Pet;
 use App\Models\PetReport;
-use App\Models\PetSighting;
+use App\Models\PetReportSighting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -75,7 +75,7 @@ class PetReportDetailTest extends TestCase
         $pet = Pet::factory()->create(['user_id' => $owner->id]);
         $report = $this->createReportWithLocation(['pet_id' => $pet->id, 'user_id' => $owner->id]);
 
-        PetSighting::factory()->count(3)->create(['report_id' => $report->id, 'user_id' => $viewer->id]);
+        PetReportSighting::factory()->count(3)->create(['report_id' => $report->id, 'user_id' => $viewer->id]);
 
         $response = $this->getJson("/api/v1/pet-reports/{$report->id}/detail");
 

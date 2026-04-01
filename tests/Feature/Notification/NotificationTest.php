@@ -68,12 +68,12 @@ class NotificationTest extends TestCase
 
         $this->createNotification($user, ['type' => 'App\Notifications\PetMatchesFound']);
         $this->createNotification($user, ['type' => 'App\Notifications\PetLostNearby']);
-        $this->createNotification($user, ['type' => 'App\Notifications\PetSightingReported']);
+        $this->createNotification($user, ['type' => 'App\Notifications\PetReportSightingReported']);
 
         $response = $this->getJson('/api/v1/user/notifications');
 
         $types = collect($response->json('data'))->pluck('type')->sort()->values()->all();
-        $this->assertEquals(['matches_found', 'pet_lost_nearby', 'pet_sighting_reported'], $types);
+        $this->assertEquals(['matches_found', 'pet_lost_nearby', 'pet_report_sighting_reported'], $types);
     }
 
     // ─── MARK AS READ ───────────────────────────────────────
