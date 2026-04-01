@@ -4,16 +4,16 @@ namespace App\Notifications;
 
 use App\Channels\PushChannel;
 use App\DTOs\Notification\PushNotificationPayload;
-use App\Models\PetSighting;
+use App\Models\PetReportSighting;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
-class PetSightingReported extends Notification
+class PetReportSightingReported extends Notification
 {
     use Queueable;
 
     public function __construct(
-        private readonly PetSighting $sighting,
+        private readonly PetReportSighting $sighting,
     ) {}
 
     /**
@@ -60,7 +60,7 @@ class PetSightingReported extends Notification
             title: "Alguém avistou {$petName}!",
             body: "Um avistamento foi reportado próximo a {$addressHint}",
             data: [
-                'type' => 'sighting',
+                'type' => 'report_sighting',
                 'report_id' => $this->sighting->report_id,
                 'sighting_id' => $this->sighting->id,
             ],
