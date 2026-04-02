@@ -16,11 +16,22 @@ use App\Http\Resources\PetSightingResource;
 use App\Models\PetSighting;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Gate;
 
 class PetSightingController extends Controller
 {
+    public function my(Request $request): AnonymousResourceCollection
+    {
+        $query = $request->user()->petSightings()
+            ->withCoordinates()
+            ->with(['photos', 'breed', 'characteristics'])
+            ->orderByDesc('created_at');
+
+        return PetSightingResource::collection($query->paginateFromRequest());
+    }
+
     public function index(PetSightingIndexRequest $request): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', PetSighting::class);

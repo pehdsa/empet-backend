@@ -78,6 +78,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('pet-reports/{petReport}/sightings/{petReportSighting}', [PetReportSightingController::class, 'show']);
 
     // Pet Sightings (independent)
+    Route::get('pet-sightings/my', [PetSightingController::class, 'my']);
     Route::get('pet-sightings/map', [PetSightingController::class, 'map']);
     Route::post('pet-sightings/{petSighting}/claim', [PetSightingController::class, 'claim']);
     Route::apiResource('pet-sightings', PetSightingController::class)

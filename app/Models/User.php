@@ -73,6 +73,11 @@ class User extends Authenticatable
         return $this->hasMany(PetReport::class);
     }
 
+    public function petSightings(): HasMany
+    {
+        return $this->hasMany(PetSighting::class);
+    }
+
     public function devices(): HasMany
     {
         return $this->hasMany(UserDevice::class);
