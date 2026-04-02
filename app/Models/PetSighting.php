@@ -74,6 +74,11 @@ class PetSighting extends Model
         return $this->hasMany(PetMatch::class, 'sighting_id');
     }
 
+    public function claims(): HasMany
+    {
+        return $this->hasMany(PetSightingClaim::class);
+    }
+
     /**
      * Scope to select latitude and longitude from the geography column.
      */

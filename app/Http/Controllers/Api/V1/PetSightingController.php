@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\PetSighting\ClaimPetSighting;
 use App\Actions\PetSighting\DestroyPetSighting;
 use App\Actions\PetSighting\StorePetSighting;
 use App\DTOs\PetSighting\StorePetSightingData;
@@ -10,6 +11,7 @@ use App\Http\Requests\PetSighting\ListPetSightingRequest;
 use App\Http\Requests\PetSighting\PetSightingIndexRequest;
 use App\Http\Requests\PetSighting\StorePetSightingRequest;
 use App\Http\Resources\MessageResource;
+use App\Http\Resources\PetSightingClaimResource;
 use App\Http\Resources\PetSightingResource;
 use App\Models\PetSighting;
 use Carbon\Carbon;
@@ -130,6 +132,17 @@ class PetSightingController extends Controller
             ->find($petSighting->id);
 
         return new PetSightingResource($petSighting);
+    }
+
+    public function claim(PetSighting $petSighting, ClaimPetSighting $action): JsonResponse
+    {
+        Gate::authorize('claim', $petSighting);
+
+        $claim = $action->handle($petSighting, request()->user());
+
+        return (new PetSightingClaimResource($claim->load('sighting.user.phones')))
+            ->response()
+            ->setStatusCode(200);
     }
 
     public function destroy(PetSighting $petSighting, DestroyPetSighting $action): MessageResource

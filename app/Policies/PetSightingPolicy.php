@@ -39,4 +39,13 @@ class PetSightingPolicy
     {
         return $user->id === $sighting->user_id || $user->role === UserRole::Admin;
     }
+
+    /**
+     * Determine whether the user can claim the sighting.
+     * Users cannot claim their own sightings.
+     */
+    public function claim(User $user, PetSighting $sighting): bool
+    {
+        return $user->id !== $sighting->user_id;
+    }
 }
