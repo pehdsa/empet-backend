@@ -25,12 +25,13 @@
   "characteristics": [
     { "id": 5, "name": "Orelha cortada", "category": "MARKING" }
   ],
+  "activeReportId": 42,
   "createdAt": "2026-03-15T10:00:00.000000Z",
   "updatedAt": "2026-03-15T10:00:00.000000Z"
 }
 ```
 
-> `breed`, `secondaryBreed`, `photos` e `characteristics` sao condicionais (`whenLoaded`). `breed` retorna `null` quando `breed_id` e null.
+> `breed`, `secondaryBreed`, `photos` e `characteristics` sao condicionais (`whenLoaded`). `breed` retorna `null` quando `breed_id` e null. `activeReportId` retorna o ID do report LOST ativo do pet, ou `null` se nao ha report ativo.
 
 ---
 
@@ -95,7 +96,7 @@
 | primary_color | string | nao | max:100 | Cor principal |
 | notes | string | nao | max:1000 | Observacoes |
 | characteristic_ids[] | int[] | nao | exists:characteristics (active) | IDs de caracteristicas |
-| photos[] | file[] | nao | max 5 arquivos, cada max 2MB, jpeg/png/webp | Fotos |
+| photos[] | file[] | nao | max 5 arquivos, cada max 5MB, jpeg/png/webp/heic/heif | Fotos |
 
 **Exemplo (JSON body para demonstracao — enviar como multipart):**
 
@@ -122,7 +123,7 @@ Retorna `PetResource` completo.
 
 - `breed_id` e `secondary_breed_id` devem ser racas ativas e da mesma especie do pet
 - `secondary_breed_id` deve ser diferente de `breed_id`
-- Fotos armazenadas no S3 com nomes ULID, posicoes 0-based
+- Fotos armazenadas no S3 com nomes ULID, posicoes 0-based. Formatos HEIC/HEIF sao automaticamente convertidos para JPEG via `ImageConverter`
 - Caracteristicas sincronizadas via tabela pivot `pet_characteristics`
 
 #### Status Codes
@@ -186,7 +187,7 @@ Retorna `PetResource` completo com photos, characteristics, breed, secondaryBree
 | primary_color | string | nao | max:100 | Cor principal |
 | notes | string | nao | max:1000 | Observacoes |
 | characteristic_ids[] | int[] | nao | exists:characteristics (active) | IDs de caracteristicas |
-| new_photos[] | file[] | nao | max 2MB cada, jpeg/png/webp | Novas fotos |
+| new_photos[] | file[] | nao | max 5MB cada, jpeg/png/webp/heic/heif | Novas fotos |
 | delete_photo_ids[] | int[] | nao | IDs de fotos do pet | Fotos a remover |
 
 #### Response

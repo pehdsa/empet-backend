@@ -30,7 +30,7 @@
 }
 ```
 
-> `pet`, `user`, `matches` e `matchesCount` sao condicionais (`whenLoaded`/`whenCounted`). O campo `user` so aparece para Admin.
+> `pet`, `user`, `matches`, `matchesCount` e `sightingsCount` sao condicionais (`whenLoaded`/`whenCounted`). O campo `user` so aparece para Admin. O campo `distanceMeters` aparece quando a query inclui calculo de distancia.
 
 ### PetMatchResource
 
@@ -113,6 +113,174 @@ GET /api/v1/pet-reports?status=LOST&latitude=-23.55&longitude=-46.63&radius_km=2
 | 422 Unprocessable Entity | Validacao falhou (status/species/size/paginate invalido, lat sem lng, etc.) |
 
 ---
+
+---
+
+## Endpoints da Comunidade
+
+> Endpoints publicos para visualizacao de reports da comunidade. Qualquer usuario autenticado (CLIENT ou ADMIN) pode acessar.
+
+### GET /api/v1/pet-reports/lost
+
+> Lista reports de pets perdidos da comunidade, ordenados por proximidade.
+
+**Auth:** Bearer token
+**Policy:** viewLost (CLIENT ou ADMIN)
+
+#### Request
+
+**Query params:**
+
+| Param | Tipo | Obrigatorio | Default | Descricao |
+|-------|------|-------------|---------|-----------|
+| latitude | numeric | sim | — | Latitude do usuario |
+| longitude | numeric | sim | — | Longitude do usuario |
+| species | string | nao | — | Filtro: `DOG`, `CAT` |
+| size | string | nao | — | Filtro: `SMALL`, `MEDIUM`, `LARGE` |
+| page | int | nao | 1 | Pagina |
+| per_page | int | nao | 15 | Itens por pagina |
+
+#### Response
+
+**Status:** 200 OK (paginado)
+
+Retorna colecao paginada de `PetReportResource` com `distanceMeters` e `pet` eager-loaded. Ordenacao por distancia ASC.
+
+#### Regras de Negocio
+
+- Retorna apenas reports com status `LOST` e `is_active = true`
+- Calcula distancia via PostGIS `ST_Distance` e ordena por proximidade
+- Exclui reports do proprio usuario
+- `species` e `size` filtram via relacionamento `pet`
+
+#### Status Codes
+
+| Status | Quando |
+|--------|--------|
+| 200 OK | Sucesso |
+| 401 Unauthorized | Token ausente/invalido |
+| 422 Unprocessable Entity | Validacao falhou (latitude/longitude ausente) |
+
+---
+
+### GET /api/v1/pet-reports/lost/map
+
+> Retorna reports de pets perdidos para exibicao no mapa (nao paginado).
+
+**Auth:** Bearer token
+**Policy:** viewLost (CLIENT ou ADMIN)
+
+#### Request
+
+**Query params:**
+
+| Param | Tipo | Obrigatorio | Default | Descricao |
+|-------|------|-------------|---------|-----------|
+| latitude | numeric | sim | — | Latitude central |
+| longitude | numeric | sim | — | Longitude central |
+| radius_km | numeric | nao | 10 | Raio de busca em km (1-100) |
+| species | string | nao | — | Filtro: `DOG`, `CAT` |
+| size | string | nao | — | Filtro: `SMALL`, `MEDIUM`, `LARGE` |
+
+#### Response
+
+**Status:** 200 OK (colecao simples, sem paginacao)
+
+```json
+{
+  "data": [ ... ]
+}
+```
+
+Limite tecnico de 500 registros. Cada item inclui `distanceMeters`.
+
+#### Regras de Negocio
+
+- Retorna apenas reports com status `LOST` e `is_active = true`
+- Filtra por raio via PostGIS `ST_DWithin`
+- Ordenacao por distancia ASC
+- Limite de 500 para protecao operacional
+
+#### Status Codes
+
+| Status | Quando |
+|--------|--------|
+| 200 OK | Sucesso |
+| 401 Unauthorized | Token ausente/invalido |
+| 422 Unprocessable Entity | Validacao falhou |
+
+---
+
+### GET /api/v1/pet-reports/found
+
+> Lista reports de pets encontrados da comunidade.
+
+**Auth:** Bearer token
+**Policy:** viewFound (CLIENT ou ADMIN)
+
+#### Request
+
+**Query params:**
+
+| Param | Tipo | Obrigatorio | Default | Descricao |
+|-------|------|-------------|---------|-----------|
+| species | string | nao | — | Filtro: `DOG`, `CAT` |
+| size | string | nao | — | Filtro: `SMALL`, `MEDIUM`, `LARGE` |
+| page | int | nao | 1 | Pagina |
+| per_page | int | nao | 15 | Itens por pagina |
+
+#### Response
+
+**Status:** 200 OK (paginado)
+
+Retorna colecao paginada de `PetReportResource`. Ordenacao por `found_at DESC` (mais recentes primeiro).
+
+#### Regras de Negocio
+
+- Retorna apenas reports com status `FOUND` e `is_active = true`
+- `species` e `size` filtram via relacionamento `pet`
+
+#### Status Codes
+
+| Status | Quando |
+|--------|--------|
+| 200 OK | Sucesso |
+| 401 Unauthorized | Token ausente/invalido |
+| 422 Unprocessable Entity | Validacao falhou |
+
+---
+
+### GET /api/v1/pet-reports/{petReport}/detail
+
+> Exibe detalhes de um report da comunidade (inclui contagens de sightings e matches).
+
+**Auth:** Bearer token
+**Policy:** viewDetail (comunidade pode ver LOST/FOUND; owner pode ver proprios CANCELLED/LOST)
+
+#### Response
+
+**Status:** 200 OK
+
+Retorna `PetReportResource` com `matchesCount`, `sightingsCount` e `pet` completo (photos, breed, characteristics).
+
+#### Regras de Negocio
+
+- Usuarios da comunidade podem ver reports com status `LOST` ou `FOUND`
+- Owner pode ver seus proprios reports independente do status
+- Admin pode ver qualquer report
+
+#### Status Codes
+
+| Status | Quando |
+|--------|--------|
+| 200 OK | Sucesso |
+| 401 Unauthorized | Token ausente/invalido |
+| 403 Forbidden | Nao autorizado a ver este report |
+| 404 Not Found | Report nao encontrado |
+
+---
+
+## Endpoints do Owner
 
 ### POST /api/v1/pet-reports
 
