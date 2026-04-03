@@ -32,6 +32,9 @@
 |--------|-------|----------|
 | viewAny | CLIENT ou ADMIN | `GET /pet-reports` |
 | view | Owner ou ADMIN | `GET /pet-reports/{id}` |
+| viewLost | CLIENT ou ADMIN | `GET /pet-reports/lost`, `GET /pet-reports/lost/map` |
+| viewFound | CLIENT ou ADMIN | `GET /pet-reports/found` |
+| viewDetail | Comunidade (LOST/FOUND) ou Owner ou ADMIN | `GET /pet-reports/{id}/detail` |
 | create | CLIENT | `POST /pet-reports` |
 | update | Owner E status=LOST | `PUT /pet-reports/{id}` |
 | cancel | Owner E status=LOST | `PATCH /pet-reports/{id}/cancel` |
@@ -41,3 +44,19 @@
 | confirmMatch | Owner | `PATCH .../matches/{id}/confirm` |
 
 > **Nota**: `dismissMatch` e `confirmMatch` verificam apenas ownership na policy. A validacao de estado do report (`status=LOST`) e do match (`status=PENDING`) acontece nas Actions `DismissMatch` e `ConfirmMatch`, retornando 422.
+
+> **Nota**: `viewDetail` permite que qualquer usuario da comunidade veja reports LOST/FOUND. O owner pode ver seus proprios reports independente do status.
+
+---
+
+## PetSightingPolicy
+
+`App\Policies\PetSightingPolicy`
+
+| Action | Regra | Usado em |
+|--------|-------|----------|
+| viewAny | CLIENT ou ADMIN | `GET /pet-sightings` |
+| view | Qualquer usuario autenticado | `GET /pet-sightings/{id}` |
+| create | CLIENT | `POST /pet-sightings` |
+| delete | Owner ou ADMIN | `DELETE /pet-sightings/{id}` |
+| claim | Nao pode ser o proprio avistador | `POST /pet-sightings/{id}/claim` |

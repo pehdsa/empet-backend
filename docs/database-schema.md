@@ -217,6 +217,7 @@
 - belongsTo Pet (pet_id)
 - belongsTo User (user_id)
 - hasMany PetMatch
+- hasMany PetReportSighting
 
 ---
 
@@ -243,6 +244,194 @@
 **Relationships:**
 - belongsTo PetReport (report_id)
 - belongsTo Pet (matched_pet_id)
+
+---
+
+## pet_sightings
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| user_id | bigint unsigned | nao | — | FK |
+| title | varchar(255) | nao | — | |
+| description | text | sim | null | |
+| address_hint | varchar(500) | sim | null | |
+| sighted_at | timestamp | nao | — | |
+| species | varchar(255) | nao | — | Enum: `DOG`, `CAT` |
+| size | varchar(255) | sim | null | Enum: `SMALL`, `MEDIUM`, `LARGE` |
+| sex | varchar(255) | sim | null | Enum: `MALE`, `FEMALE`, `UNKNOWN` |
+| color | varchar(100) | sim | null | |
+| breed_id | bigint unsigned | sim | null | FK |
+| share_phone | boolean | nao | `false` | |
+| location | geography(Point, 4326) | nao | — | PostGIS — indice GIST |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+| deleted_at | timestamp | sim | null | Soft Delete |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| user_id | users.id | CASCADE |
+| breed_id | breeds.id | SET NULL |
+
+**Constraints:**
+- Indice GIST em `location` para busca espacial
+- Indice composto: `(species, created_at)`
+- Soft Delete via `deleted_at`
+
+**Relationships:**
+- belongsTo User (user_id)
+- belongsTo Breed (breed_id)
+- hasMany PetSightingPhoto
+- belongsToMany Characteristic (via pet_sighting_characteristics)
+- hasMany PetSightingClaim
+- hasMany PetMatch
+
+---
+
+## pet_sighting_photos
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| pet_sighting_id | bigint unsigned | nao | — | FK |
+| path | varchar(500) | nao | — | Caminho no S3 |
+| position | smallint unsigned | nao | `0` | Ordem 0-based (max 3) |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| pet_sighting_id | pet_sightings.id | CASCADE |
+
+**Relationships:**
+- belongsTo PetSighting
+
+---
+
+## pet_sighting_characteristics
+
+> Tabela pivot entre `pet_sightings` e `characteristics`.
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| pet_sighting_id | bigint unsigned | nao | — | FK |
+| characteristic_id | bigint unsigned | nao | — | FK |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| pet_sighting_id | pet_sightings.id | CASCADE |
+| characteristic_id | characteristics.id | CASCADE |
+
+**Constraints:**
+- UNIQUE composto: `(pet_sighting_id, characteristic_id)`
+
+---
+
+## pet_sighting_claims
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| pet_sighting_id | bigint unsigned | nao | — | FK |
+| user_id | bigint unsigned | nao | — | FK |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| pet_sighting_id | pet_sightings.id | CASCADE |
+| user_id | users.id | CASCADE |
+
+**Constraints:**
+- UNIQUE composto: `(pet_sighting_id, user_id)`
+
+**Relationships:**
+- belongsTo PetSighting
+- belongsTo User
+
+---
+
+## password_reset_codes
+
+> PK: `email` (varchar, nao usa bigint auto-increment).
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| email | varchar(255) | nao | — | PK |
+| code_hash | varchar(255) | sim | null | Hash bcrypt do codigo de 6 digitos |
+| code_expires_at | timestamp | sim | null | Expiracao do codigo (15 min) |
+| reset_token_hash | varchar(255) | sim | null | Hash bcrypt do token de reset |
+| token_expires_at | timestamp | sim | null | Expiracao do token (15 min) |
+| attempts | tinyint unsigned | nao | `0` | Tentativas de verificacao (max 5) |
+| verified_at | timestamp | sim | null | Quando o codigo foi verificado |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+
+---
+
+## user_notification_settings
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| user_id | bigint unsigned | nao | — | FK, UNIQUE |
+| notify_lost_nearby | boolean | nao | `true` | |
+| notify_matches | boolean | nao | `true` | |
+| notify_sightings | boolean | nao | `true` | |
+| nearby_radius_km | integer | nao | `5` | Raio em km (1-50) |
+| location | geography(Point, 4326) | sim | null | Localizacao base do usuario |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| user_id | users.id | CASCADE |
+
+**Constraints:**
+- UNIQUE: `user_id`
+
+**Relationships:**
+- belongsTo User
+
+---
+
+## user_devices
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| user_id | bigint unsigned | nao | — | FK |
+| device_token | varchar(500) | nao | — | Token FCM/APNs (UNIQUE global) |
+| platform | varchar(255) | nao | — | Enum: `IOS`, `ANDROID` |
+| device_name | varchar(255) | sim | null | |
+| provider_device_id | varchar(255) | sim | null | ID no provider externo (OneSignal) |
+| is_active | boolean | nao | `true` | |
+| last_active_at | timestamp | sim | null | |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| user_id | users.id | CASCADE |
+
+**Constraints:**
+- UNIQUE: `device_token`
+
+**Relationships:**
+- belongsTo User
 
 ---
 

@@ -61,3 +61,10 @@ Namespace base: `App\Enums`
 | Pending | `"PENDING"` |
 | Confirmed | `"CONFIRMED"` |
 | Dismissed | `"DISMISSED"` |
+
+## DevicePlatform
+
+| Case | Value |
+|------|-------|
+| Ios | `"IOS"` |
+| Android | `"ANDROID"` |
