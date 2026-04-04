@@ -17,6 +17,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ProcessReportSightingMatching implements ShouldQueue
 {
@@ -126,6 +127,39 @@ class ProcessReportSightingMatching implements ShouldQueue
 
         if (count($matches) > 0) {
             $report->user->notify(new PetMatchesFound($report, count($matches)));
+        }
+
+        if (config('services.match_ai.enabled')) {
+            $this->dispatchAiEvaluations($report);
+        }
+    }
+
+    /**
+     * Seleciona matches PENDING elegiveis e despacha avaliacao por IA.
+     */
+    private function dispatchAiEvaluations(PetReport $report): void
+    {
+        $minScore = (int) config('services.match_ai.min_base_score', 25);
+        $maxPerReport = (int) config('services.match_ai.max_evaluations_per_report', 5);
+
+        $eligibleMatches = PetMatch::query()
+            ->where('report_id', $report->id)
+            ->where('status', PetMatchStatus::Pending)
+            ->whereNull('ai_status')
+            ->where('base_score', '>=', $minScore)
+            ->orderByDesc('base_score')
+            ->orderBy('distance_meters')
+            ->limit($maxPerReport)
+            ->get();
+
+        Log::info('match_ai_dispatched', [
+            'report_id' => $report->id,
+            'eligible_count' => $eligibleMatches->count(),
+        ]);
+
+        foreach ($eligibleMatches as $match) {
+            ProcessMatchAiEvaluation::dispatch($match)
+                ->delay(now()->addSeconds(5));
         }
     }
 

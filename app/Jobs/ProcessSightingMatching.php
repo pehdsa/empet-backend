@@ -16,6 +16,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ProcessSightingMatching implements ShouldQueue
 {
@@ -71,6 +72,7 @@ class ProcessSightingMatching implements ShouldQueue
         $reports = $this->findCandidateReports($sighting);
 
         $newMatchesByReport = [];
+        $affectedReports = [];
 
         foreach ($reports as $report) {
             $existing = PetMatch::query()
@@ -100,6 +102,7 @@ class ProcessSightingMatching implements ShouldQueue
                     'final_score' => $score,
                     'distance_meters' => $report->distance_meters,
                 ]);
+                $affectedReports[$report->id] = $report;
             } else {
                 $currentCount = PetMatch::where('report_id', $report->id)
                     ->where('status', PetMatchStatus::Pending)
@@ -120,11 +123,47 @@ class ProcessSightingMatching implements ShouldQueue
                 ]);
 
                 $newMatchesByReport[$report->id] = $report;
+                $affectedReports[$report->id] = $report;
             }
         }
 
         foreach ($newMatchesByReport as $report) {
             $report->user->notify(new PetMatchesFound($report, 1));
+        }
+
+        if (config('services.match_ai.enabled')) {
+            foreach ($affectedReports as $report) {
+                $this->dispatchAiEvaluations($report);
+            }
+        }
+    }
+
+    /**
+     * Seleciona matches PENDING elegiveis e despacha avaliacao por IA.
+     */
+    private function dispatchAiEvaluations(PetReport $report): void
+    {
+        $minScore = (int) config('services.match_ai.min_base_score', 25);
+        $maxPerReport = (int) config('services.match_ai.max_evaluations_per_report', 5);
+
+        $eligibleMatches = PetMatch::query()
+            ->where('report_id', $report->id)
+            ->where('status', PetMatchStatus::Pending)
+            ->whereNull('ai_status')
+            ->where('base_score', '>=', $minScore)
+            ->orderByDesc('base_score')
+            ->orderBy('distance_meters')
+            ->limit($maxPerReport)
+            ->get();
+
+        Log::info('match_ai_dispatched', [
+            'report_id' => $report->id,
+            'eligible_count' => $eligibleMatches->count(),
+        ]);
+
+        foreach ($eligibleMatches as $match) {
+            ProcessMatchAiEvaluation::dispatch($match)
+                ->delay(now()->addSeconds(5));
         }
     }
 
