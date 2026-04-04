@@ -30,13 +30,13 @@ class PetReportMatchTest extends TestCase
     // MATCHES LIST (GET /api/v1/pet-reports/{petReport}/matches)
     // ──────────────────────────────────────────────
 
-    public function test_matches_returns_pending_by_default_ordered_by_score_distance_id(): void
+    public function test_matches_returns_pending_by_default_ordered_by_final_score_distance_id(): void
     {
         $user = User::factory()->client()->create();
         $report = $this->createReportWithLocation(['user_id' => $user->id, 'pet_id' => Pet::factory()->create(['user_id' => $user->id])->id]);
 
-        $matchLow = PetMatch::factory()->create(['report_id' => $report->id, 'score' => 40, 'distance_meters' => 1000, 'status' => PetMatchStatus::Pending]);
-        $matchHigh = PetMatch::factory()->create(['report_id' => $report->id, 'score' => 80, 'distance_meters' => 5000, 'status' => PetMatchStatus::Pending]);
+        $matchLow = PetMatch::factory()->create(['report_id' => $report->id, 'base_score' => 40, 'final_score' => 40, 'distance_meters' => 1000, 'status' => PetMatchStatus::Pending]);
+        $matchHigh = PetMatch::factory()->create(['report_id' => $report->id, 'base_score' => 80, 'final_score' => 80, 'distance_meters' => 5000, 'status' => PetMatchStatus::Pending]);
         PetMatch::factory()->create(['report_id' => $report->id, 'status' => PetMatchStatus::Dismissed]);
 
         Sanctum::actingAs($user, ['*']);
@@ -81,7 +81,7 @@ class PetReportMatchTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonStructure([
                 'data' => [
-                    ['id', 'reportId', 'sightingId', 'score', 'distanceMeters', 'status', 'sighting'],
+                    ['id', 'reportId', 'sightingId', 'baseScore', 'finalScore', 'aiStatus', 'aiSummary', 'distanceMeters', 'status', 'sighting'],
                 ],
             ]);
     }

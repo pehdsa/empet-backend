@@ -4,12 +4,12 @@ namespace App\Jobs;
 
 use App\Enums\PetMatchStatus;
 use App\Enums\PetReportStatus;
-use App\Enums\PetSex;
 use App\Models\Pet;
 use App\Models\PetMatch;
 use App\Models\PetReport;
 use App\Models\PetSighting;
 use App\Notifications\PetMatchesFound;
+use App\Services\MatchScoringService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,13 +32,7 @@ class ProcessReportSightingMatching implements ShouldQueue
      */
     public $backoff = [10, 60];
 
-    private const MAX_RADIUS_METERS = 25000;
-
-    private const SCORE_THRESHOLD = 30;
-
     private const MAX_MATCHES = 20;
-
-    private const COLOR_STOPWORDS = ['e', 'com', 'de', 'o', 'a'];
 
     public function __construct(
         private readonly PetReport $report,
@@ -47,7 +41,7 @@ class ProcessReportSightingMatching implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(): void
+    public function handle(MatchScoringService $scorer): void
     {
         $lock = Cache::lock("report-sighting-matching:report:{$this->report->id}", 60);
 
@@ -58,13 +52,13 @@ class ProcessReportSightingMatching implements ShouldQueue
         }
 
         try {
-            $this->processMatching();
+            $this->processMatching($scorer);
         } finally {
             $lock->release();
         }
     }
 
-    private function processMatching(): void
+    private function processMatching(MatchScoringService $scorer): void
     {
         $report = PetReport::query()
             ->withCoordinates()
@@ -93,35 +87,38 @@ class ProcessReportSightingMatching implements ShouldQueue
                 continue;
             }
 
-            $score = $this->calculateScore($sighting, $lostPet, $sighting->distance_meters);
+            $result = $scorer->calculateScore($sighting, $lostPet, $sighting->distance_meters);
 
-            if ($score < self::SCORE_THRESHOLD) {
+            if ($result->total < MatchScoringService::SCORE_THRESHOLD) {
                 continue;
             }
 
             if ($existing) {
+                $score = round($result->total, 2);
                 $existing->update([
-                    'score' => round($score, 2),
+                    'base_score' => $score,
+                    'final_score' => $score,
                     'distance_meters' => $sighting->distance_meters,
                 ]);
             } else {
                 $matches[] = [
                     'sighting' => $sighting,
-                    'score' => round($score, 2),
+                    'base_score' => round($result->total, 2),
                     'distance' => $sighting->distance_meters,
                 ];
                 $newCount++;
             }
         }
 
-        usort($matches, fn ($a, $b) => $b['score'] <=> $a['score']);
+        usort($matches, fn ($a, $b) => $b['base_score'] <=> $a['base_score']);
         $matches = array_slice($matches, 0, self::MAX_MATCHES);
 
         foreach ($matches as $match) {
             PetMatch::create([
                 'report_id' => $report->id,
                 'sighting_id' => $match['sighting']->id,
-                'score' => $match['score'],
+                'base_score' => $match['base_score'],
+                'final_score' => $match['base_score'],
                 'distance_meters' => $match['distance'],
                 'status' => PetMatchStatus::Pending,
             ]);
@@ -146,151 +143,13 @@ class ProcessReportSightingMatching implements ShouldQueue
                 [$report->longitude, $report->latitude]
             )
             ->where('pet_sightings.species', $lostPet->species)
+            ->where('pet_sightings.user_id', '!=', $report->user_id)
             ->whereNull('pet_sightings.deleted_at')
             ->whereRaw(
                 'ST_DWithin(pet_sightings.location, ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography, ?)',
-                [$report->longitude, $report->latitude, self::MAX_RADIUS_METERS]
+                [$report->longitude, $report->latitude, MatchScoringService::MAX_RADIUS_METERS]
             )
             ->with(['characteristics'])
             ->get();
-    }
-
-    /**
-     * Calculate matching score between sighting and lost pet.
-     */
-    private function calculateScore(PetSighting $sighting, Pet $lostPet, ?float $distance): float
-    {
-        $score = 0;
-
-        $score += $this->proximityScore($distance);
-        $score += $this->breedScore($sighting, $lostPet);
-        $score += $this->sizeScore($sighting, $lostPet);
-        $score += $this->sexScore($sighting, $lostPet);
-        $score += $this->colorScore($sighting, $lostPet);
-        $score += $this->characteristicsScore($sighting, $lostPet);
-
-        return $score;
-    }
-
-    private function proximityScore(?float $distance): float
-    {
-        if ($distance === null) {
-            return 0;
-        }
-
-        return max(0, 35 * (1 - $distance / self::MAX_RADIUS_METERS));
-    }
-
-    private function breedScore(PetSighting $sighting, Pet $lostPet): float
-    {
-        $sightingBreed = $sighting->breed_id;
-        $lostBreeds = array_values(array_filter(
-            [$lostPet->breed_id, $lostPet->secondary_breed_id ?? null],
-            fn ($id) => $id !== null
-        ));
-
-        if ($sightingBreed === null && empty($lostBreeds)) {
-            return 5;
-        }
-        if ($sightingBreed === null || empty($lostBreeds)) {
-            return 0;
-        }
-        if ($lostPet->breed_id !== null && $sightingBreed === $lostPet->breed_id) {
-            return 25;
-        }
-        if (in_array($sightingBreed, $lostBreeds)) {
-            return 12;
-        }
-
-        return -15;
-    }
-
-    private function sizeScore(PetSighting $sighting, Pet $lostPet): float
-    {
-        $sizeOrder = ['SMALL' => 0, 'MEDIUM' => 1, 'LARGE' => 2];
-        $sightingSize = $sighting->size ? ($sizeOrder[$sighting->size->value] ?? null) : null;
-        $lostSize = $lostPet->size ? ($sizeOrder[$lostPet->size->value] ?? null) : null;
-
-        if ($sightingSize === null || $lostSize === null) {
-            return 0;
-        }
-
-        return match (abs($sightingSize - $lostSize)) {
-            0 => 10,
-            1 => 4,
-            default => 0,
-        };
-    }
-
-    private function sexScore(PetSighting $sighting, Pet $lostPet): float
-    {
-        $sightingSex = $sighting->sex;
-        $lostSex = $lostPet->sex;
-
-        if ($sightingSex === null || $lostSex === null) {
-            return 0;
-        }
-        if ($sightingSex === PetSex::Unknown || $lostSex === PetSex::Unknown) {
-            return 5;
-        }
-        if ($sightingSex === $lostSex) {
-            return 10;
-        }
-
-        return -10;
-    }
-
-    private function colorScore(PetSighting $sighting, Pet $lostPet): float
-    {
-        $sightingColor = $sighting->color;
-        $lostColor = $lostPet->primary_color;
-
-        if ($sightingColor === null && $lostColor === null) {
-            return 3;
-        }
-        if ($sightingColor === null || $lostColor === null) {
-            return 0;
-        }
-
-        $sightingTokens = $this->colorTokens($sightingColor);
-        $lostTokens = $this->colorTokens($lostColor);
-
-        if (empty($sightingTokens) || empty($lostTokens)) {
-            return 0;
-        }
-
-        $intersection = count(array_intersect($sightingTokens, $lostTokens));
-        $union = count(array_unique(array_merge($sightingTokens, $lostTokens)));
-
-        return $union === 0 ? 0 : ($intersection / $union) * 5;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function colorTokens(string $color): array
-    {
-        $normalized = mb_strtolower(trim($color));
-        $tokens = preg_split('/[\s,\/]+/', $normalized, -1, PREG_SPLIT_NO_EMPTY);
-
-        return array_values(array_filter(
-            $tokens,
-            fn ($token) => ! in_array($token, self::COLOR_STOPWORDS)
-        ));
-    }
-
-    private function characteristicsScore(PetSighting $sighting, Pet $lostPet): float
-    {
-        $sightingIds = $sighting->characteristics->pluck('id')->toArray();
-        $lostIds = $lostPet->characteristics->pluck('id')->toArray();
-
-        if (empty($sightingIds) && empty($lostIds)) {
-            return 5;
-        }
-
-        $intersection = count(array_intersect($sightingIds, $lostIds));
-        $union = count(array_unique(array_merge($sightingIds, $lostIds)));
-
-        return $union === 0 ? 5 : ($intersection / $union) * 10;
     }
 }

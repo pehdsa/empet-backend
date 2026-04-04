@@ -19,7 +19,15 @@ class PetMatch extends Model
     protected $fillable = [
         'report_id',
         'sighting_id',
-        'score',
+        'base_score',
+        'ai_score',
+        'ai_confidence',
+        'ai_status',
+        'ai_provider',
+        'ai_model',
+        'ai_summary',
+        'ai_evaluated_at',
+        'final_score',
         'distance_meters',
         'status',
     ];
@@ -31,7 +39,11 @@ class PetMatch extends Model
     {
         return [
             'status' => PetMatchStatus::class,
-            'score' => 'decimal:2',
+            'base_score' => 'decimal:2',
+            'ai_score' => 'decimal:2',
+            'ai_confidence' => 'decimal:3',
+            'ai_evaluated_at' => 'datetime',
+            'final_score' => 'decimal:2',
             'distance_meters' => 'decimal:2',
         ];
     }

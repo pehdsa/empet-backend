@@ -339,7 +339,7 @@ class PetReportController extends Controller
             ->with([
                 'sighting.photos', 'sighting.characteristics', 'sighting.breed', 'sighting.user:id,name,avatar_url',
             ])
-            ->orderByDesc('score')
+            ->orderByDesc('final_score')
             ->orderBy('distance_meters')
             ->orderBy('id')
             ->get();

@@ -15,7 +15,15 @@ return new class extends Migration
             $table->id();
             $table->foreignId('report_id')->constrained('pet_reports')->cascadeOnDelete();
             $table->foreignId('matched_pet_id')->constrained('pets')->cascadeOnDelete();
-            $table->decimal('score', 5, 2);
+            $table->decimal('base_score', 5, 2);
+            $table->decimal('ai_score', 5, 2)->nullable();
+            $table->decimal('ai_confidence', 4, 3)->nullable();
+            $table->string('ai_status', 20)->nullable();
+            $table->string('ai_provider', 50)->nullable();
+            $table->string('ai_model', 50)->nullable();
+            $table->string('ai_summary', 255)->nullable();
+            $table->timestamp('ai_evaluated_at')->nullable();
+            $table->decimal('final_score', 5, 2);
             $table->decimal('distance_meters', 10, 2)->nullable();
             $table->string('status');
             $table->timestamps();

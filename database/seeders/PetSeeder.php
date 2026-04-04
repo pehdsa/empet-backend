@@ -651,7 +651,8 @@ class PetSeeder extends Seeder
         PetMatch::factory()->create([
             'report_id' => $reports['R1']->id,
             'sighting_id' => $s1->id,
-            'score' => 85.50,
+            'base_score' => 85.50,
+            'final_score' => 85.50,
             'distance_meters' => 1200.00,
             'status' => PetMatchStatus::Pending,
         ]);
@@ -660,7 +661,8 @@ class PetSeeder extends Seeder
         PetMatch::factory()->confirmed()->create([
             'report_id' => $reports['R4']->id,
             'sighting_id' => $s2->id,
-            'score' => 72.30,
+            'base_score' => 72.30,
+            'final_score' => 72.30,
             'distance_meters' => 1200.00,
         ]);
 
@@ -668,7 +670,8 @@ class PetSeeder extends Seeder
         PetMatch::factory()->dismissed()->create([
             'report_id' => $reports['R1']->id,
             'sighting_id' => $s3->id,
-            'score' => 30.00,
+            'base_score' => 30.00,
+            'final_score' => 30.00,
             'distance_meters' => 15000.00,
         ]);
     }
