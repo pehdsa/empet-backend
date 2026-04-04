@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\MatchAiProvider;
 use App\Contracts\PushNotificationService;
+use App\Services\MatchAi\Providers\LogMatchAiProvider;
+use App\Services\MatchAi\Providers\NullMatchAiProvider;
 use App\Services\Push\LogPushService;
 use App\Services\Push\OneSignalPushService;
 use Carbon\CarbonImmutable;
@@ -27,6 +30,14 @@ class AppServiceProvider extends ServiceProvider
             $this->app->isProduction()
                 ? OneSignalPushService::class
                 : LogPushService::class,
+        );
+
+        $this->app->bind(
+            MatchAiProvider::class,
+            match (config('services.match_ai.provider')) {
+                'log' => LogMatchAiProvider::class,
+                default => NullMatchAiProvider::class,
+            },
         );
     }
 
