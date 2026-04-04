@@ -6,6 +6,7 @@ use App\Contracts\MatchAiProvider;
 use App\Contracts\PushNotificationService;
 use App\Services\MatchAi\Providers\LogMatchAiProvider;
 use App\Services\MatchAi\Providers\NullMatchAiProvider;
+use App\Services\MatchAi\Providers\OpenAiMatchAiProvider;
 use App\Services\Push\LogPushService;
 use App\Services\Push\OneSignalPushService;
 use Carbon\CarbonImmutable;
@@ -35,6 +36,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             MatchAiProvider::class,
             match (config('services.match_ai.provider')) {
+                'openai' => OpenAiMatchAiProvider::class,
                 'log' => LogMatchAiProvider::class,
                 default => NullMatchAiProvider::class,
             },
