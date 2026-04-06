@@ -1,13 +1,10 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Eye, Power } from 'lucide-react';
+import { Eye, Power, Search } from 'lucide-react';
 import { useState } from 'react';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { SharedProps } from '@/Types/inertia';
 import type { Paginated, Filters } from '@/Types/shared';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
     Select,
     SelectContent,
@@ -15,14 +12,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,7 +22,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 interface Pet {
     id: number;
@@ -83,20 +71,25 @@ export default function PetsIndex() {
 
     return (
         <AdminLayout breadcrumbs={[{ label: 'Pets' }]}>
-            <h1 className="text-2xl font-bold">Pets</h1>
+            {/* Title */}
+            <h1 className="text-[22px] font-bold text-[#313233]">Pets</h1>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Input
-                    placeholder="Buscar por nome..."
-                    value={search}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="w-64"
-                />
+            {/* Filters */}
+            <div className="flex items-center gap-3">
+                <div className="flex h-9 w-60 items-center gap-2 rounded-lg border border-[#E2E2E2] bg-white px-3">
+                    <Search className="size-3.5 text-[#9B9C9D]" />
+                    <input
+                        placeholder="Buscar por nome..."
+                        value={search}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        className="flex-1 bg-transparent text-[13px] text-[#313233] outline-none placeholder:text-[#9B9C9D]"
+                    />
+                </div>
                 <Select
                     value={filters.species ?? 'all'}
                     onValueChange={(v) => applyFilters({ species: v === 'all' ? undefined : v })}
                 >
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="h-9 w-[150px] rounded-lg border-[#E2E2E2] bg-white text-[13px] text-[#6B6C6D]">
                         <SelectValue placeholder="Espécie" />
                     </SelectTrigger>
                     <SelectContent>
@@ -109,7 +102,7 @@ export default function PetsIndex() {
                     value={filters.active ?? 'all'}
                     onValueChange={(v) => applyFilters({ active: v === 'all' ? undefined : v })}
                 >
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="h-9 w-[130px] rounded-lg border-[#E2E2E2] bg-white text-[13px] text-[#6B6C6D]">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -120,79 +113,66 @@ export default function PetsIndex() {
                 </Select>
             </div>
 
-            <div className="mt-4 rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Espécie</TableHead>
-                            <TableHead>Raça</TableHead>
-                            <TableHead>Dono</TableHead>
-                            <TableHead className="text-center">Status</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {pets.data.length > 0 ? (
-                            pets.data.map((pet) => (
-                                <TableRow key={pet.id}>
-                                    <TableCell className="font-medium">{pet.name}</TableCell>
-                                    <TableCell>{speciesLabels[pet.species] ?? pet.species}</TableCell>
-                                    <TableCell>{pet.breed?.name ?? '—'}</TableCell>
-                                    <TableCell>{pet.user?.name ?? '—'}</TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant={pet.is_active ? 'default' : 'secondary'}>
-                                            {pet.is_active ? 'Ativo' : 'Inativo'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="sm" asChild>
-                                                <Link href={`/admin/pets/${pet.id}`}>
-                                                    <Eye className="size-4" />
-                                                </Link>
-                                            </Button>
-                                            <Button variant="ghost" size="sm" onClick={() => setToggling(pet)}>
-                                                <Power className={`size-4 ${pet.is_active ? 'text-destructive' : 'text-empet-success'}`} />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                                    Nenhum pet encontrado.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+            {/* Table */}
+            <div className="overflow-hidden rounded-[10px] border border-[#E2E2E2] bg-white">
+                {/* Header */}
+                <div className="flex h-10 items-center bg-[#F8F8F8] px-4">
+                    <span className="w-[160px] text-xs font-semibold text-[#6B6C6D]">Nome</span>
+                    <span className="w-[100px] text-xs font-semibold text-[#6B6C6D]">Espécie</span>
+                    <span className="w-[140px] text-xs font-semibold text-[#6B6C6D]">Raça</span>
+                    <span className="w-[140px] text-xs font-semibold text-[#6B6C6D]">Dono</span>
+                    <span className="w-20 text-center text-xs font-semibold text-[#6B6C6D]">Status</span>
+                    <span className="flex-1 text-right text-xs font-semibold text-[#6B6C6D]">Ações</span>
+                </div>
+
+                {/* Rows */}
+                {pets.data.length > 0 ? pets.data.map((pet) => (
+                    <div key={pet.id} className="flex h-11 items-center border-t border-[#E2E2E2] px-4">
+                        <span className="w-[160px] text-[13px] font-medium text-[#313233]">{pet.name}</span>
+                        <span className="w-[100px] text-[13px] text-[#6B6C6D]">{speciesLabels[pet.species] ?? pet.species}</span>
+                        <span className="w-[140px] text-[13px] text-[#6B6C6D]">{pet.breed?.name ?? '—'}</span>
+                        <span className="w-[140px] text-[13px] text-[#6B6C6D]">{pet.user?.name ?? '—'}</span>
+                        <span className="w-20 text-center">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                pet.is_active ? 'bg-[#43A047] text-white' : 'bg-[#E7E8E5] text-[#6B6C6D]'
+                            }`}>
+                                {pet.is_active ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </span>
+                        <span className="flex flex-1 items-center justify-end gap-1">
+                            <Link href={`/admin/pets/${pet.id}`} className="rounded p-1 hover:bg-[#F8F8F8]">
+                                <Eye className="size-4 text-[#9B9C9D]" />
+                            </Link>
+                            <button onClick={() => setToggling(pet)} className="rounded p-1 hover:bg-[#F8F8F8]">
+                                <Power className={`size-4 ${pet.is_active ? 'text-[#E53935]' : 'text-[#43A047]'}`} />
+                            </button>
+                        </span>
+                    </div>
+                )) : (
+                    <div className="flex h-20 items-center justify-center text-[13px] text-[#9B9C9D]">
+                        Nenhum pet encontrado.
+                    </div>
+                )}
             </div>
 
+            {/* Pagination */}
             {pets.last_page > 1 && (
-                <div className="mt-4">
-                    <Pagination>
-                        <PaginationContent>
-                            {pets.prev_page_url && (
-                                <PaginationItem>
-                                    <PaginationPrevious href={pets.prev_page_url} />
-                                </PaginationItem>
-                            )}
-                            {Array.from({ length: pets.last_page }, (_, i) => i + 1).map((page) => (
-                                <PaginationItem key={page}>
-                                    <PaginationLink href={`/admin/pets?page=${page}`} isActive={page === pets.current_page}>
-                                        {page}
-                                    </PaginationLink>
-                                </PaginationItem>
-                            ))}
-                            {pets.next_page_url && (
-                                <PaginationItem>
-                                    <PaginationNext href={pets.next_page_url} />
-                                </PaginationItem>
-                            )}
-                        </PaginationContent>
-                    </Pagination>
+                <div className="flex items-center justify-center gap-1">
+                    {pets.prev_page_url && (
+                        <Link href={pets.prev_page_url} className="rounded px-2 py-1 text-[13px] text-[#6B6C6D] hover:bg-[#E7E8E5]">Anterior</Link>
+                    )}
+                    {Array.from({ length: pets.last_page }, (_, i) => i + 1).map((page) => (
+                        <Link
+                            key={page}
+                            href={`/admin/pets?page=${page}`}
+                            className={`rounded px-2.5 py-1 text-[13px] ${page === pets.current_page ? 'bg-primary text-white' : 'text-[#6B6C6D] hover:bg-[#E7E8E5]'}`}
+                        >
+                            {page}
+                        </Link>
+                    ))}
+                    {pets.next_page_url && (
+                        <Link href={pets.next_page_url} className="rounded px-2 py-1 text-[13px] text-[#6B6C6D] hover:bg-[#E7E8E5]">Próximo</Link>
+                    )}
                 </div>
             )}
 

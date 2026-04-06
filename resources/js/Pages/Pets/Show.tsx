@@ -4,10 +4,6 @@ import { useState } from 'react';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { SharedProps } from '@/Types/inertia';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -55,6 +51,15 @@ interface PageProps extends SharedProps {
 const speciesLabels: Record<string, string> = { DOG: 'Cachorro', CAT: 'Gato' };
 const statusLabels: Record<string, string> = { LOST: 'Perdido', FOUND: 'Encontrado', CANCELLED: 'Cancelado' };
 
+function statusBadgeClass(status: string): string {
+    switch (status) {
+        case 'LOST': return 'bg-[#E53935] text-white';
+        case 'FOUND': return 'bg-[#43A047] text-white';
+        case 'CANCELLED': return 'bg-[#E7E8E5] text-[#6B6C6D]';
+        default: return 'bg-[#E7E8E5] text-[#6B6C6D]';
+    }
+}
+
 export default function PetShow() {
     const { pet } = usePage<PageProps>().props;
     const [showConfirm, setShowConfirm] = useState(false);
@@ -68,95 +73,102 @@ export default function PetShow() {
 
     return (
         <AdminLayout breadcrumbs={[{ label: 'Pets', href: '/admin/pets' }, { label: pet.name }]}>
+            {/* Title row */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href="/admin/pets"><ArrowLeft className="size-4" /></Link>
-                    </Button>
-                    <h1 className="text-2xl font-bold">{pet.name}</h1>
-                    <Badge variant={pet.is_active ? 'default' : 'secondary'}>
+                    <Link href="/admin/pets" className="rounded p-1 hover:bg-[#F8F8F8]">
+                        <ArrowLeft className="size-4 text-[#9B9C9D]" />
+                    </Link>
+                    <h1 className="text-[22px] font-bold text-[#313233]">{pet.name}</h1>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        pet.is_active ? 'bg-[#43A047] text-white' : 'bg-[#E7E8E5] text-[#6B6C6D]'
+                    }`}>
                         {pet.is_active ? 'Ativo' : 'Inativo'}
-                    </Badge>
+                    </span>
                 </div>
-                <Button
-                    variant={pet.is_active ? 'destructive' : 'default'}
+                <button
                     onClick={() => setShowConfirm(true)}
+                    className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-medium ${
+                        pet.is_active
+                            ? 'border border-[#E53935] text-[#E53935] hover:bg-red-50'
+                            : 'bg-primary text-white hover:bg-[#CC8000]'
+                    }`}
                 >
-                    <Power className="mr-2 size-4" />
+                    <Power className="size-3.5" />
                     {pet.is_active ? 'Desativar' : 'Reativar'}
-                </Button>
+                </button>
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Informações</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+            {/* Content grid */}
+            <div className="grid gap-6 lg:grid-cols-2">
+                {/* Info card */}
+                <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                    <h2 className="text-sm font-semibold text-[#313233]">Informações</h2>
+                    <div className="mt-4 flex flex-col gap-2.5">
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Espécie</span>
-                            <span>{speciesLabels[pet.species] ?? pet.species}</span>
+                            <span className="text-[13px] text-[#9B9C9D]">Espécie</span>
+                            <span className="text-[13px] font-medium text-[#313233]">{speciesLabels[pet.species] ?? pet.species}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Raça</span>
-                            <span>{pet.breed?.name ?? '—'}{pet.secondary_breed ? ` / ${pet.secondary_breed.name}` : ''}</span>
+                            <span className="text-[13px] text-[#9B9C9D]">Raça</span>
+                            <span className="text-[13px] font-medium text-[#313233]">{pet.breed?.name ?? '—'}{pet.secondary_breed ? ` / ${pet.secondary_breed.name}` : ''}</span>
                         </div>
                         {pet.size && (
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Porte</span>
-                                <span>{pet.size}</span>
+                                <span className="text-[13px] text-[#9B9C9D]">Porte</span>
+                                <span className="text-[13px] font-medium text-[#313233]">{pet.size}</span>
                             </div>
                         )}
                         {pet.sex && (
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Sexo</span>
-                                <span>{pet.sex}</span>
+                                <span className="text-[13px] text-[#9B9C9D]">Sexo</span>
+                                <span className="text-[13px] font-medium text-[#313233]">{pet.sex}</span>
                             </div>
                         )}
                         {pet.primary_color && (
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Cor</span>
-                                <span>{pet.primary_color}</span>
+                                <span className="text-[13px] text-[#9B9C9D]">Cor</span>
+                                <span className="text-[13px] font-medium text-[#313233]">{pet.primary_color}</span>
                             </div>
                         )}
-                        <Separator />
+                        <div className="border-t border-[#E2E2E2]" />
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Dono</span>
-                            <span>{pet.user?.name ?? '—'} ({pet.user?.email})</span>
+                            <span className="text-[13px] text-[#9B9C9D]">Dono</span>
+                            <span className="text-[13px] font-medium text-[#313233]">{pet.user?.name ?? '—'} ({pet.user?.email})</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Cadastrado em</span>
-                            <span>{new Date(pet.created_at).toLocaleDateString('pt-BR')}</span>
+                            <span className="text-[13px] text-[#9B9C9D]">Cadastrado em</span>
+                            <span className="text-[13px] font-medium text-[#313233]">{new Date(pet.created_at).toLocaleDateString('pt-BR')}</span>
                         </div>
                         {pet.notes && (
                             <>
-                                <Separator />
-                                <p className="text-muted-foreground">{pet.notes}</p>
+                                <div className="border-t border-[#E2E2E2]" />
+                                <p className="text-[13px] text-[#6B6C6D]">{pet.notes}</p>
                             </>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6">
+                    {/* Characteristics */}
                     {pet.characteristics.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Características</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-wrap gap-2">
+                        <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                            <h2 className="text-sm font-semibold text-[#313233]">Características</h2>
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 {pet.characteristics.map((c) => (
-                                    <Badge key={c.id} variant="outline">{c.name}</Badge>
+                                    <span key={c.id} className="rounded-full border border-[#E2E2E2] px-2.5 py-0.5 text-[11px] font-medium text-[#313233]">
+                                        {c.name}
+                                    </span>
                                 ))}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
 
+                    {/* Photos */}
                     {pet.photos.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Fotos</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-wrap gap-2">
+                        <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                            <h2 className="text-sm font-semibold text-[#313233]">Fotos</h2>
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 {pet.photos.map((photo) => (
                                     <img
                                         key={photo.id}
@@ -165,36 +177,35 @@ export default function PetShow() {
                                         className="size-24 rounded-md object-cover"
                                     />
                                 ))}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Reports ({pet.reports.length})</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
+                    {/* Reports */}
+                    <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                        <h2 className="text-sm font-semibold text-[#313233]">Reports ({pet.reports.length})</h2>
+                        <div className="mt-4 flex flex-col gap-2.5">
                             {pet.reports.length > 0 ? (
                                 pet.reports.map((report) => (
-                                    <div key={report.id} className="flex items-center justify-between text-sm">
-                                        <Link href={`/admin/reports/${report.id}`} className="text-primary hover:underline">
+                                    <div key={report.id} className="flex items-center justify-between">
+                                        <Link href={`/admin/reports/${report.id}`} className="text-[13px] font-medium text-primary hover:underline">
                                             Report #{report.id}
                                         </Link>
                                         <div className="flex items-center gap-2">
-                                            <Badge variant="outline">
+                                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(report.status)}`}>
                                                 {statusLabels[report.status] ?? report.status}
-                                            </Badge>
-                                            <span className="text-xs text-muted-foreground">
+                                            </span>
+                                            <span className="text-[11px] text-[#9B9C9D]">
                                                 {new Date(report.created_at).toLocaleDateString('pt-BR')}
                                             </span>
                                         </div>
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-muted-foreground">Nenhum report.</p>
+                                <p className="text-[13px] text-[#9B9C9D]">Nenhum report.</p>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             </div>
 

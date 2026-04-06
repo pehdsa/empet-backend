@@ -3,26 +3,15 @@ import {
     Users,
     PawPrint,
     FileSearch,
-    CheckCircle,
+    CircleCheck,
     MapPin,
     GitCompare,
 } from 'lucide-react';
 import { useEffect } from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Cell,
-    Pie,
-    PieChart,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { SharedProps } from '@/Types/inertia';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     ChartContainer,
     ChartTooltip,
@@ -56,15 +45,8 @@ interface LatestSighting {
     sightedAt: string;
 }
 
-interface TimelineEntry {
-    date: string;
-    count: number;
-}
-
-interface MatchStatusEntry {
-    status: string;
-    count: number;
-}
+interface TimelineEntry { date: string; count: number }
+interface MatchStatusEntry { status: string; count: number }
 
 interface DashboardProps extends SharedProps {
     kpis: KPIs;
@@ -75,41 +57,26 @@ interface DashboardProps extends SharedProps {
 }
 
 const kpiCards = [
-    { key: 'users' as const, label: 'Usuários', icon: Users, color: 'text-blue-600' },
-    { key: 'pets' as const, label: 'Pets ativos', icon: PawPrint, color: 'text-empet-primary' },
-    { key: 'reportsOpen' as const, label: 'Reports abertos', icon: FileSearch, color: 'text-red-600' },
-    { key: 'reportsFound' as const, label: 'Encontrados', icon: CheckCircle, color: 'text-empet-success' },
-    { key: 'sightings' as const, label: 'Avistamentos', icon: MapPin, color: 'text-empet-secondary' },
-    { key: 'matchesPending' as const, label: 'Matches pendentes', icon: GitCompare, color: 'text-yellow-600' },
+    { key: 'users' as const, label: 'Usuários', icon: Users, color: '#2563EB' },
+    { key: 'pets' as const, label: 'Pets ativos', icon: PawPrint, color: '#FFA001' },
+    { key: 'reportsOpen' as const, label: 'Reports abertos', icon: FileSearch, color: '#E53935' },
+    { key: 'reportsFound' as const, label: 'Encontrados', icon: CircleCheck, color: '#43A047' },
+    { key: 'sightings' as const, label: 'Avistamentos', icon: MapPin, color: '#AD4FFF' },
+    { key: 'matchesPending' as const, label: 'Matches pendentes', icon: GitCompare, color: '#CA8A04' },
 ];
 
-const statusColors: Record<string, string> = {
-    LOST: 'destructive',
-    FOUND: 'default',
-    CANCELLED: 'secondary',
-};
-
-const matchStatusColors: Record<string, string> = {
-    PENDING: 'hsl(45, 100%, 50%)',
-    CONFIRMED: 'hsl(135, 50%, 40%)',
-    DISMISSED: 'hsl(0, 0%, 60%)',
+const statusBadge: Record<string, { bg: string; text: string }> = {
+    LOST: { bg: '#E53935', text: '#FFFFFF' },
+    FOUND: { bg: '#43A047', text: '#FFFFFF' },
+    CANCELLED: { bg: '#E7E8E5', text: '#6B6C6D' },
 };
 
 const timelineConfig: ChartConfig = {
-    count: { label: 'Reports', color: 'var(--color-empet-primary)' },
-};
-
-const matchChartConfig: ChartConfig = {
-    PENDING: { label: 'Pendente', color: matchStatusColors.PENDING },
-    CONFIRMED: { label: 'Confirmado', color: matchStatusColors.CONFIRMED },
-    DISMISSED: { label: 'Descartado', color: matchStatusColors.DISMISSED },
+    count: { label: 'Reports', color: '#FFA001' },
 };
 
 function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-    });
+    return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 export default function DashboardIndex() {
@@ -124,150 +91,123 @@ export default function DashboardIndex() {
 
     return (
         <AdminLayout breadcrumbs={[{ label: 'Dashboard' }]}>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            <h1 className="text-[22px] font-bold text-[#313233]">Dashboard</h1>
+
+            {/* KPI Cards — gap-4 (16px) */}
+            <div className="grid grid-cols-6 gap-4">
                 {kpiCards.map(({ key, label, icon: Icon, color }) => (
-                    <Card key={key}>
-                        <CardContent className="flex items-center gap-3 p-4">
-                            <Icon className={`size-8 ${color}`} />
-                            <div>
-                                <p className="text-2xl font-bold">{kpis[key]}</p>
-                                <p className="text-xs text-muted-foreground">{label}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <div
+                        key={key}
+                        className="flex items-center gap-3 rounded-[10px] border border-[#E2E2E2] bg-white p-4"
+                    >
+                        <Icon className="size-7 shrink-0" style={{ color }} />
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-[22px] font-bold leading-tight text-[#313233]">{kpis[key]}</span>
+                            <span className="text-[11px] text-[#9B9C9D]">{label}</span>
+                        </div>
+                    </div>
                 ))}
             </div>
 
-            {/* Charts */}
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Reports (últimos 30 dias)</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+            {/* Charts — gap-4 (16px) */}
+            <div className="grid grid-cols-2 gap-4">
+                {/* Bar chart */}
+                <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                    <h2 className="text-sm font-semibold text-[#313233]">Reports (últimos 30 dias)</h2>
+                    <div className="mt-4">
                         {reportsTimeline && reportsTimeline.length > 0 ? (
-                            <ChartContainer config={timelineConfig} className="h-[250px] w-full">
+                            <ChartContainer config={timelineConfig} className="h-40 w-full">
                                 <BarChart data={reportsTimeline}>
                                     <CartesianGrid vertical={false} />
-                                    <XAxis
-                                        dataKey="date"
-                                        tickFormatter={(v) => formatDate(v)}
-                                        fontSize={11}
-                                    />
+                                    <XAxis dataKey="date" tickFormatter={formatDate} fontSize={11} />
                                     <YAxis allowDecimals={false} fontSize={11} />
                                     <ChartTooltip content={<ChartTooltipContent />} />
                                     <Bar dataKey="count" fill="var(--color-count)" radius={4} />
                                 </BarChart>
                             </ChartContainer>
                         ) : (
-                            <p className="py-10 text-center text-sm text-muted-foreground">
+                            <p className="py-10 text-center text-[13px] text-[#9B9C9D]">
                                 {reportsTimeline ? 'Sem dados no período.' : 'Carregando...'}
                             </p>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Matches por status</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                {/* Donut chart */}
+                <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                    <h2 className="text-sm font-semibold text-[#313233]">Matches por status</h2>
+                    <div className="mt-4 flex flex-col items-center gap-4">
                         {matchesByStatus && matchesByStatus.length > 0 ? (
-                            <ChartContainer config={matchChartConfig} className="mx-auto h-[250px] w-full max-w-[300px]">
-                                <PieChart>
-                                    <ChartTooltip content={<ChartTooltipContent />} />
-                                    <Pie
-                                        data={matchesByStatus}
-                                        dataKey="count"
-                                        nameKey="status"
-                                        innerRadius={50}
-                                        outerRadius={90}
-                                        strokeWidth={2}
-                                    >
-                                        {matchesByStatus.map((entry) => (
-                                            <Cell
-                                                key={entry.status}
-                                                fill={matchStatusColors[entry.status] ?? 'hsl(0, 0%, 80%)'}
-                                            />
-                                        ))}
-                                    </Pie>
-                                </PieChart>
-                            </ChartContainer>
+                            <>
+                                <div className="flex size-36 items-center justify-center rounded-full border-[16px] border-[#FFA001] bg-white">
+                                    <span className="text-lg font-bold text-[#313233]">
+                                        {matchesByStatus.reduce((s, e) => s + e.count, 0)}
+                                    </span>
+                                </div>
+                                <div className="flex gap-4">
+                                    {[
+                                        { label: 'Pendente', color: '#EAB308' },
+                                        { label: 'Confirmado', color: '#43A047' },
+                                        { label: 'Descartado', color: '#9CA3AF' },
+                                    ].map((item) => (
+                                        <div key={item.label} className="flex items-center gap-1">
+                                            <div className="size-2 rounded-full" style={{ backgroundColor: item.color }} />
+                                            <span className="text-[11px] text-[#6B6C6D]">{item.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
                         ) : (
-                            <p className="py-10 text-center text-sm text-muted-foreground">
+                            <p className="py-10 text-[13px] text-[#9B9C9D]">
                                 {matchesByStatus ? 'Sem dados.' : 'Carregando...'}
                             </p>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
 
-            {/* Latest lists */}
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Últimos reports</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {latestReports.length > 0 ? (
-                            latestReports.map((report) => (
-                                <div key={report.id} className="flex items-center justify-between text-sm">
-                                    <div>
-                                        <span className="font-medium">
-                                            {report.petName ?? 'Pet desconhecido'}
-                                        </span>
-                                        <span className="ml-2 text-muted-foreground">
-                                            por {report.ownerName}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant={statusColors[report.status] as any ?? 'secondary'}>
-                                            {report.status}
-                                        </Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                            {formatDate(report.createdAt)}
-                                        </span>
-                                    </div>
+            {/* Latest lists — gap-4 */}
+            <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                    <h2 className="text-sm font-semibold text-[#313233]">Últimos reports</h2>
+                    <div className="mt-3 flex flex-col gap-3">
+                        {latestReports.length > 0 ? latestReports.map((r) => (
+                            <div key={r.id} className="flex items-center justify-between">
+                                <div className="flex gap-1">
+                                    <span className="text-[13px] font-medium text-[#313233]">{r.petName ?? 'Pet desconhecido'}</span>
+                                    <span className="text-[13px] text-[#9B9C9D]">por {r.ownerName}</span>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="py-4 text-center text-sm text-muted-foreground">
-                                Nenhum report encontrado.
-                            </p>
+                                <span
+                                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                                    style={{ backgroundColor: statusBadge[r.status]?.bg, color: statusBadge[r.status]?.text }}
+                                >
+                                    {r.status}
+                                </span>
+                            </div>
+                        )) : (
+                            <p className="py-4 text-center text-[13px] text-[#9B9C9D]">Nenhum report.</p>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Últimos avistamentos</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {latestSightings.length > 0 ? (
-                            latestSightings.map((sighting) => (
-                                <div key={sighting.id} className="flex items-center justify-between text-sm">
-                                    <div>
-                                        <span className="font-medium">{sighting.title}</span>
-                                        <span className="ml-2 text-muted-foreground">
-                                            por {sighting.reporterName}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant="outline">{sighting.species}</Badge>
-                                        <span className="text-xs text-muted-foreground">
-                                            {formatDate(sighting.sightedAt)}
-                                        </span>
-                                    </div>
+                <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                    <h2 className="text-sm font-semibold text-[#313233]">Últimos avistamentos</h2>
+                    <div className="mt-3 flex flex-col gap-3">
+                        {latestSightings.length > 0 ? latestSightings.map((s) => (
+                            <div key={s.id} className="flex items-center justify-between">
+                                <div className="flex gap-1">
+                                    <span className="text-[13px] font-medium text-[#313233]">{s.title}</span>
+                                    <span className="text-[13px] text-[#9B9C9D]">por {s.reporterName}</span>
                                 </div>
-                            ))
-                        ) : (
-                            <p className="py-4 text-center text-sm text-muted-foreground">
-                                Nenhum avistamento encontrado.
-                            </p>
+                                <span className="rounded-full bg-[#E7E8E5] px-2 py-0.5 text-[10px] font-semibold text-[#313233]">
+                                    {s.species}
+                                </span>
+                            </div>
+                        )) : (
+                            <p className="py-4 text-center text-[13px] text-[#9B9C9D]">Nenhum avistamento.</p>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </AdminLayout>
     );

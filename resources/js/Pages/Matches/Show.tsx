@@ -4,10 +4,6 @@ import { useState } from 'react';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { SharedProps } from '@/Types/inertia';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -77,17 +73,29 @@ const matchStatusLabels: Record<string, string> = {
     DISMISSED: 'Descartado',
 };
 
-const matchStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    PENDING: 'outline',
-    CONFIRMED: 'default',
-    DISMISSED: 'secondary',
-};
+function matchStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'PENDING': return 'bg-[#FEF3C7] text-[#92400E]';
+        case 'CONFIRMED': return 'bg-[#DCFCE7] text-[#166534]';
+        case 'DISMISSED': return 'bg-[#E7E8E5] text-[#6B6C6D]';
+        default: return 'bg-[#E7E8E5] text-[#6B6C6D]';
+    }
+}
 
 const reportStatusLabels: Record<string, string> = {
     LOST: 'Perdido',
     FOUND: 'Encontrado',
     CANCELLED: 'Cancelado',
 };
+
+function reportStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'LOST': return 'bg-[#E53935] text-white';
+        case 'FOUND': return 'bg-[#43A047] text-white';
+        case 'CANCELLED': return 'bg-[#E7E8E5] text-[#6B6C6D]';
+        default: return 'bg-[#E7E8E5] text-[#6B6C6D]';
+    }
+}
 
 const aiStatusLabels: Record<string, string> = {
     PENDING: 'Pendente',
@@ -96,6 +104,17 @@ const aiStatusLabels: Record<string, string> = {
     FAILED: 'Falhou',
     SKIPPED: 'Ignorado',
 };
+
+function aiStatusBadgeClass(status: string | null): string {
+    switch (status) {
+        case 'COMPLETED': return 'bg-[#DCFCE7] text-[#166534]';
+        case 'FAILED': return 'bg-[#E53935] text-white';
+        case 'PROCESSING': return 'bg-[#FEF3C7] text-[#92400E]';
+        case 'PENDING': return 'bg-[#FEF3C7] text-[#92400E]';
+        case 'SKIPPED': return 'bg-[#E7E8E5] text-[#6B6C6D]';
+        default: return 'bg-[#E7E8E5] text-[#6B6C6D]';
+    }
+}
 
 export default function MatchShow() {
     const { match } = usePage<PageProps>().props;
@@ -109,77 +128,75 @@ export default function MatchShow() {
 
     return (
         <AdminLayout breadcrumbs={[{ label: 'Matches', href: '/admin/matches' }, { label: `Match #${match.id}` }]}>
+            {/* Title row */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href="/admin/matches"><ArrowLeft className="size-4" /></Link>
-                    </Button>
-                    <h1 className="text-2xl font-bold">Match #{match.id}</h1>
-                    <Badge variant={matchStatusVariant[match.status] ?? 'outline'}>
+                    <Link href="/admin/matches" className="rounded p-1 hover:bg-[#F8F8F8]">
+                        <ArrowLeft className="size-4 text-[#9B9C9D]" />
+                    </Link>
+                    <h1 className="text-[22px] font-bold text-[#313233]">Match #{match.id}</h1>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${matchStatusBadgeClass(match.status)}`}>
                         {matchStatusLabels[match.status] ?? match.status}
-                    </Badge>
+                    </span>
                 </div>
                 {match.status === 'PENDING' && (
-                    <Button variant="destructive" onClick={() => setShowDismiss(true)}>
-                        <XCircle className="mr-2 size-4" />
+                    <button onClick={() => setShowDismiss(true)} className="flex items-center gap-1.5 rounded-lg border border-[#E53935] px-4 py-2 text-[13px] font-medium text-[#E53935] hover:bg-red-50">
+                        <XCircle className="size-3.5" />
                         Descartar
-                    </Button>
+                    </button>
                 )}
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            {/* Split layout: Report vs Sighting */}
+            <div className="grid gap-6 lg:grid-cols-2">
                 {/* Left: Report info */}
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Report</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
+                <div className="flex flex-col gap-6">
+                    <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                        <h2 className="text-sm font-semibold text-[#313233]">Report</h2>
+                        <div className="mt-4 flex flex-col gap-2.5">
                             {match.report ? (
                                 <>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Report</span>
-                                        <Link href={`/admin/reports/${match.report.id}`} className="text-primary hover:underline">
+                                        <span className="text-[13px] text-[#9B9C9D]">Report</span>
+                                        <Link href={`/admin/reports/${match.report.id}`} className="text-[13px] font-medium text-primary hover:underline">
                                             #{match.report.id}
                                         </Link>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Status</span>
-                                        <Badge variant="outline">
+                                        <span className="text-[13px] text-[#9B9C9D]">Status</span>
+                                        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${reportStatusBadgeClass(match.report.status)}`}>
                                             {reportStatusLabels[match.report.status] ?? match.report.status}
-                                        </Badge>
+                                        </span>
                                     </div>
                                     {match.report.pet && (
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Pet</span>
-                                            <Link href={`/admin/pets/${match.report.pet.id}`} className="text-primary hover:underline">
+                                            <span className="text-[13px] text-[#9B9C9D]">Pet</span>
+                                            <Link href={`/admin/pets/${match.report.pet.id}`} className="text-[13px] font-medium text-primary hover:underline">
                                                 {match.report.pet.name}
                                             </Link>
                                         </div>
                                     )}
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Dono</span>
-                                        <span>{match.report.user?.name ?? '—'}</span>
+                                        <span className="text-[13px] text-[#9B9C9D]">Dono</span>
+                                        <span className="text-[13px] font-medium text-[#313233]">{match.report.user?.name ?? '—'}</span>
                                     </div>
                                     {match.report.description && (
                                         <>
-                                            <Separator />
-                                            <p className="text-muted-foreground">{match.report.description}</p>
+                                            <div className="border-t border-[#E2E2E2]" />
+                                            <p className="text-[13px] text-[#6B6C6D]">{match.report.description}</p>
                                         </>
                                     )}
                                 </>
                             ) : (
-                                <p className="text-muted-foreground">Report não disponível.</p>
+                                <p className="text-[13px] text-[#9B9C9D]">Report não disponível.</p>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {match.report?.pet && match.report.pet.photos.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Fotos do Pet</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-wrap gap-2">
+                        <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                            <h2 className="text-sm font-semibold text-[#313233]">Fotos do Pet</h2>
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 {match.report.pet.photos.map((photo) => (
                                     <img
                                         key={photo.id}
@@ -188,55 +205,51 @@ export default function MatchShow() {
                                         className="size-24 rounded-md object-cover"
                                     />
                                 ))}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
                 </div>
 
                 {/* Right: Sighting info */}
-                <div className="space-y-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Avistamento</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
+                <div className="flex flex-col gap-6">
+                    <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                        <h2 className="text-sm font-semibold text-[#313233]">Avistamento</h2>
+                        <div className="mt-4 flex flex-col gap-2.5">
                             {match.sighting ? (
                                 <>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Avistamento</span>
-                                        <Link href={`/admin/sightings/${match.sighting.id}`} className="text-primary hover:underline">
+                                        <span className="text-[13px] text-[#9B9C9D]">Avistamento</span>
+                                        <Link href={`/admin/sightings/${match.sighting.id}`} className="text-[13px] font-medium text-primary hover:underline">
                                             {match.sighting.title}
                                         </Link>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-muted-foreground">Reportado por</span>
-                                        <span>{match.sighting.user?.name ?? '—'}</span>
+                                        <span className="text-[13px] text-[#9B9C9D]">Reportado por</span>
+                                        <span className="text-[13px] font-medium text-[#313233]">{match.sighting.user?.name ?? '—'}</span>
                                     </div>
                                     {match.sighting.address_hint && (
                                         <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Local</span>
-                                            <span>{match.sighting.address_hint}</span>
+                                            <span className="text-[13px] text-[#9B9C9D]">Local</span>
+                                            <span className="text-[13px] font-medium text-[#313233]">{match.sighting.address_hint}</span>
                                         </div>
                                     )}
                                     {match.sighting.description && (
                                         <>
-                                            <Separator />
-                                            <p className="text-muted-foreground">{match.sighting.description}</p>
+                                            <div className="border-t border-[#E2E2E2]" />
+                                            <p className="text-[13px] text-[#6B6C6D]">{match.sighting.description}</p>
                                         </>
                                     )}
                                 </>
                             ) : (
-                                <p className="text-muted-foreground">Avistamento não disponível.</p>
+                                <p className="text-[13px] text-[#9B9C9D]">Avistamento não disponível.</p>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
                     {match.sighting && match.sighting.photos.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Fotos do Avistamento</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-wrap gap-2">
+                        <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                            <h2 className="text-sm font-semibold text-[#313233]">Fotos do Avistamento</h2>
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 {match.sighting.photos.map((photo) => (
                                     <img
                                         key={photo.id}
@@ -245,60 +258,56 @@ export default function MatchShow() {
                                         className="size-24 rounded-md object-cover"
                                     />
                                 ))}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>
 
             {/* AI Info Card - full width */}
-            <Card className="mt-6">
-                <CardHeader>
-                    <CardTitle className="text-base">Informações da IA</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        <div>
-                            <span className="text-sm text-muted-foreground">Status IA</span>
-                            <div className="mt-1">
-                                <Badge variant="outline">
-                                    {match.ai_status ? (aiStatusLabels[match.ai_status] ?? match.ai_status) : '—'}
-                                </Badge>
-                            </div>
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">Score IA</span>
-                            <p className="mt-1 font-medium">{match.ai_score ?? '—'}</p>
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">Confiança IA</span>
-                            <p className="mt-1 font-medium">{match.ai_confidence ?? '—'}</p>
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">Score Final</span>
-                            <p className="mt-1 font-medium">{match.final_score ?? '—'}</p>
+            <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                <h2 className="text-sm font-semibold text-[#313233]">Informações da IA</h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                        <span className="text-[13px] text-[#9B9C9D]">Status IA</span>
+                        <div className="mt-1">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${aiStatusBadgeClass(match.ai_status)}`}>
+                                {match.ai_status ? (aiStatusLabels[match.ai_status] ?? match.ai_status) : '—'}
+                            </span>
                         </div>
                     </div>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                        <div>
-                            <span className="text-sm text-muted-foreground">Score Base</span>
-                            <p className="mt-1 font-medium">{match.base_score ?? '—'}</p>
-                        </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">Distância</span>
-                            <p className="mt-1 font-medium">
-                                {match.distance_meters ? `${Number(match.distance_meters).toFixed(0)}m` : '—'}
-                            </p>
-                        </div>
+                    <div>
+                        <span className="text-[13px] text-[#9B9C9D]">Score IA</span>
+                        <p className="mt-1 text-[13px] font-medium text-[#313233]">{match.ai_score ?? '—'}</p>
                     </div>
-                    {match.ai_summary && (
-                        <div className="mt-4">
-                            <span className="text-sm text-muted-foreground">Resumo IA</span>
-                            <p className="mt-1 rounded-md bg-muted p-3 text-sm">{match.ai_summary}</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                    <div>
+                        <span className="text-[13px] text-[#9B9C9D]">Confiança IA</span>
+                        <p className="mt-1 text-[13px] font-medium text-[#313233]">{match.ai_confidence ?? '—'}</p>
+                    </div>
+                    <div>
+                        <span className="text-[13px] text-[#9B9C9D]">Score Final</span>
+                        <p className="mt-1 text-[13px] font-medium text-[#313233]">{match.final_score ?? '—'}</p>
+                    </div>
+                </div>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <span className="text-[13px] text-[#9B9C9D]">Score Base</span>
+                        <p className="mt-1 text-[13px] font-medium text-[#313233]">{match.base_score ?? '—'}</p>
+                    </div>
+                    <div>
+                        <span className="text-[13px] text-[#9B9C9D]">Distância</span>
+                        <p className="mt-1 text-[13px] font-medium text-[#313233]">
+                            {match.distance_meters ? `${Number(match.distance_meters).toFixed(0)}m` : '—'}
+                        </p>
+                    </div>
+                </div>
+                {match.ai_summary && (
+                    <div className="mt-4">
+                        <span className="text-[13px] text-[#9B9C9D]">Resumo IA</span>
+                        <p className="mt-1 rounded-lg bg-[#F8F8F8] p-3 text-[13px] text-[#6B6C6D]">{match.ai_summary}</p>
+                    </div>
+                )}
+            </div>
 
             <AlertDialog open={showDismiss} onOpenChange={setShowDismiss}>
                 <AlertDialogContent>

@@ -4,12 +4,8 @@ import { useState } from 'react';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { SharedProps } from '@/Types/inertia';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -71,17 +67,29 @@ const statusLabels: Record<string, string> = {
     CANCELLED: 'Cancelado',
 };
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-    LOST: 'destructive',
-    FOUND: 'default',
-    CANCELLED: 'secondary',
-};
+function statusBadgeClass(status: string): string {
+    switch (status) {
+        case 'LOST': return 'bg-[#E53935] text-white';
+        case 'FOUND': return 'bg-[#43A047] text-white';
+        case 'CANCELLED': return 'bg-[#E7E8E5] text-[#6B6C6D]';
+        default: return 'bg-[#E7E8E5] text-[#6B6C6D]';
+    }
+}
 
 const matchStatusLabels: Record<string, string> = {
     PENDING: 'Pendente',
     CONFIRMED: 'Confirmado',
     DISMISSED: 'Descartado',
 };
+
+function matchStatusBadgeClass(status: string): string {
+    switch (status) {
+        case 'PENDING': return 'bg-[#FEF3C7] text-[#92400E]';
+        case 'CONFIRMED': return 'bg-[#DCFCE7] text-[#166534]';
+        case 'DISMISSED': return 'bg-[#E7E8E5] text-[#6B6C6D]';
+        default: return 'bg-[#E7E8E5] text-[#6B6C6D]';
+    }
+}
 
 export default function ReportShow() {
     const { report } = usePage<PageProps>().props;
@@ -106,39 +114,40 @@ export default function ReportShow() {
 
     return (
         <AdminLayout breadcrumbs={[{ label: 'Reports', href: '/admin/reports' }, { label: `Report #${report.id}` }]}>
+            {/* Title row */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="sm" asChild>
-                        <Link href="/admin/reports"><ArrowLeft className="size-4" /></Link>
-                    </Button>
-                    <h1 className="text-2xl font-bold">Report #{report.id}</h1>
-                    <Badge variant={statusVariant[report.status] ?? 'outline'}>
+                    <Link href="/admin/reports" className="rounded p-1 hover:bg-[#F8F8F8]">
+                        <ArrowLeft className="size-4 text-[#9B9C9D]" />
+                    </Link>
+                    <h1 className="text-[22px] font-bold text-[#313233]">Report #{report.id}</h1>
+                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadgeClass(report.status)}`}>
                         {statusLabels[report.status] ?? report.status}
-                    </Badge>
+                    </span>
                 </div>
                 {report.status === 'LOST' && (
                     <div className="flex gap-2">
-                        <Button variant="default" onClick={() => setShowFound(true)}>
-                            <CheckCircle className="mr-2 size-4" />
+                        <button onClick={() => setShowFound(true)} className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-white hover:bg-[#CC8000]">
+                            <CheckCircle className="size-3.5" />
                             Marcar Encontrado
-                        </Button>
-                        <Button variant="destructive" onClick={() => setShowCancel(true)}>
-                            <Ban className="mr-2 size-4" />
+                        </button>
+                        <button onClick={() => setShowCancel(true)} className="flex items-center gap-1.5 rounded-lg border border-[#E53935] px-4 py-2 text-[13px] font-medium text-[#E53935] hover:bg-red-50">
+                            <Ban className="size-3.5" />
                             Cancelar Report
-                        </Button>
+                        </button>
                     </div>
                 )}
             </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-base">Informações do Report</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+            {/* Content grid */}
+            <div className="grid gap-6 lg:grid-cols-2">
+                {/* Info card */}
+                <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                    <h2 className="text-sm font-semibold text-[#313233]">Informações do Report</h2>
+                    <div className="mt-4 flex flex-col gap-2.5">
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Pet</span>
-                            <span>
+                            <span className="text-[13px] text-[#9B9C9D]">Pet</span>
+                            <span className="text-[13px] font-medium text-[#313233]">
                                 {report.pet ? (
                                     <Link href={`/admin/pets/${report.pet.id}`} className="text-primary hover:underline">
                                         {report.pet.name}
@@ -147,48 +156,47 @@ export default function ReportShow() {
                             </span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Dono</span>
-                            <span>{report.user?.name ?? '—'} {report.user?.email ? `(${report.user.email})` : ''}</span>
+                            <span className="text-[13px] text-[#9B9C9D]">Dono</span>
+                            <span className="text-[13px] font-medium text-[#313233]">{report.user?.name ?? '—'} {report.user?.email ? `(${report.user.email})` : ''}</span>
                         </div>
                         {report.description && (
                             <>
-                                <Separator />
-                                <p className="text-muted-foreground">{report.description}</p>
+                                <div className="border-t border-[#E2E2E2]" />
+                                <p className="text-[13px] text-[#6B6C6D]">{report.description}</p>
                             </>
                         )}
                         {report.address_hint && (
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Local</span>
-                                <span>{report.address_hint}</span>
+                                <span className="text-[13px] text-[#9B9C9D]">Local</span>
+                                <span className="text-[13px] font-medium text-[#313233]">{report.address_hint}</span>
                             </div>
                         )}
-                        <Separator />
+                        <div className="border-t border-[#E2E2E2]" />
                         {report.lost_at && (
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Perdido em</span>
-                                <span>{new Date(report.lost_at).toLocaleDateString('pt-BR')}</span>
+                                <span className="text-[13px] text-[#9B9C9D]">Perdido em</span>
+                                <span className="text-[13px] font-medium text-[#313233]">{new Date(report.lost_at).toLocaleDateString('pt-BR')}</span>
                             </div>
                         )}
                         {report.found_at && (
                             <div className="flex justify-between">
-                                <span className="text-muted-foreground">Encontrado em</span>
-                                <span>{new Date(report.found_at).toLocaleDateString('pt-BR')}</span>
+                                <span className="text-[13px] text-[#9B9C9D]">Encontrado em</span>
+                                <span className="text-[13px] font-medium text-[#313233]">{new Date(report.found_at).toLocaleDateString('pt-BR')}</span>
                             </div>
                         )}
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Criado em</span>
-                            <span>{new Date(report.created_at).toLocaleDateString('pt-BR')}</span>
+                            <span className="text-[13px] text-[#9B9C9D]">Criado em</span>
+                            <span className="text-[13px] font-medium text-[#313233]">{new Date(report.created_at).toLocaleDateString('pt-BR')}</span>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <div className="space-y-6">
+                <div className="flex flex-col gap-6">
+                    {/* Photos */}
                     {report.pet && report.pet.photos.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-base">Fotos do Pet</CardTitle>
-                            </CardHeader>
-                            <CardContent className="flex flex-wrap gap-2">
+                        <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                            <h2 className="text-sm font-semibold text-[#313233]">Fotos do Pet</h2>
+                            <div className="mt-4 flex flex-wrap gap-2">
                                 {report.pet.photos.map((photo) => (
                                     <img
                                         key={photo.id}
@@ -197,48 +205,46 @@ export default function ReportShow() {
                                         className="size-24 rounded-md object-cover"
                                     />
                                 ))}
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
                     )}
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Avistamentos do Report ({report.report_sightings.length})</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
+                    {/* Report Sightings */}
+                    <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                        <h2 className="text-sm font-semibold text-[#313233]">Avistamentos do Report ({report.report_sightings.length})</h2>
+                        <div className="mt-4 flex flex-col gap-2.5">
                             {report.report_sightings.length > 0 ? (
                                 report.report_sightings.map((rs) => (
-                                    <div key={rs.id} className="flex items-center justify-between text-sm">
-                                        <span>Avistamento #{rs.id}</span>
-                                        <span className="text-xs text-muted-foreground">
+                                    <div key={rs.id} className="flex items-center justify-between">
+                                        <span className="text-[13px] font-medium text-[#313233]">Avistamento #{rs.id}</span>
+                                        <span className="text-[11px] text-[#9B9C9D]">
                                             {new Date(rs.created_at).toLocaleDateString('pt-BR')}
                                         </span>
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-muted-foreground">Nenhum avistamento do report.</p>
+                                <p className="text-[13px] text-[#9B9C9D]">Nenhum avistamento do report.</p>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Matches ({report.matches.length})</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2">
+                    {/* Matches */}
+                    <div className="rounded-[10px] border border-[#E2E2E2] bg-white p-5">
+                        <h2 className="text-sm font-semibold text-[#313233]">Matches ({report.matches.length})</h2>
+                        <div className="mt-4 flex flex-col gap-2.5">
                             {report.matches.length > 0 ? (
                                 report.matches.map((match) => (
-                                    <div key={match.id} className="flex items-center justify-between text-sm">
-                                        <Link href={`/admin/matches/${match.id}`} className="text-primary hover:underline">
+                                    <div key={match.id} className="flex items-center justify-between">
+                                        <Link href={`/admin/matches/${match.id}`} className="text-[13px] font-medium text-primary hover:underline">
                                             Match #{match.id}
                                             {match.sighting ? ` — ${match.sighting.title}` : ''}
                                         </Link>
                                         <div className="flex items-center gap-2">
-                                            <Badge variant="outline">
+                                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${matchStatusBadgeClass(match.status)}`}>
                                                 {matchStatusLabels[match.status] ?? match.status}
-                                            </Badge>
+                                            </span>
                                             {match.final_score && (
-                                                <span className="text-xs text-muted-foreground">
+                                                <span className="text-[11px] text-[#9B9C9D]">
                                                     Score: {match.final_score}
                                                 </span>
                                             )}
@@ -246,13 +252,14 @@ export default function ReportShow() {
                                     </div>
                                 ))
                             ) : (
-                                <p className="text-sm text-muted-foreground">Nenhum match.</p>
+                                <p className="text-[13px] text-[#9B9C9D]">Nenhum match.</p>
                             )}
-                        </CardContent>
-                    </Card>
+                        </div>
+                    </div>
                 </div>
             </div>
 
+            {/* Cancel Dialog */}
             <AlertDialog open={showCancel} onOpenChange={(open) => { if (!open) { setShowCancel(false); setCancelReason(''); } }}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -262,7 +269,7 @@ export default function ReportShow() {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="py-2">
-                        <Label htmlFor="cancel-reason">Motivo</Label>
+                        <Label htmlFor="cancel-reason" className="text-sm font-medium text-[#313233]">Motivo</Label>
                         <Textarea
                             id="cancel-reason"
                             placeholder="Motivo do cancelamento (mínimo 10 caracteres)..."
@@ -280,6 +287,7 @@ export default function ReportShow() {
                 </AlertDialogContent>
             </AlertDialog>
 
+            {/* Found Dialog */}
             <AlertDialog open={showFound} onOpenChange={setShowFound}>
                 <AlertDialogContent>
                     <AlertDialogHeader>

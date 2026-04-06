@@ -1,20 +1,18 @@
-import { router, useForm, usePage } from '@inertiajs/react';
-import { Plus, Pencil, Power } from 'lucide-react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { Plus, Pencil, Power, Search } from 'lucide-react';
 import { useState } from 'react';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import type { SharedProps } from '@/Types/inertia';
 import type { Paginated, Filters } from '@/Types/shared';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
     Select,
     SelectContent,
@@ -22,14 +20,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -40,7 +30,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 
 interface Characteristic {
     id: number;
@@ -131,27 +120,31 @@ export default function CharacteristicsIndex() {
 
     return (
         <AdminLayout breadcrumbs={[{ label: 'Características' }]}>
+            {/* Title + button */}
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Características</h1>
-                <Button onClick={openCreate}>
-                    <Plus className="mr-2 size-4" />
+                <h1 className="text-[22px] font-bold text-[#313233]">Características</h1>
+                <button onClick={openCreate} className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-white hover:bg-[#CC8000]">
+                    <Plus className="size-3.5" />
                     Nova Característica
-                </Button>
+                </button>
             </div>
 
             {/* Filters */}
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-                <Input
-                    placeholder="Buscar por nome..."
-                    value={search}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    className="w-64"
-                />
+            <div className="flex items-center gap-3">
+                <div className="flex h-9 w-60 items-center gap-2 rounded-lg border border-[#E2E2E2] bg-white px-3">
+                    <Search className="size-3.5 text-[#9B9C9D]" />
+                    <input
+                        placeholder="Buscar por nome..."
+                        value={search}
+                        onChange={(e) => handleSearch(e.target.value)}
+                        className="flex-1 bg-transparent text-[13px] text-[#313233] outline-none placeholder:text-[#9B9C9D]"
+                    />
+                </div>
                 <Select
                     value={filters.category ?? 'all'}
                     onValueChange={(v) => applyFilters({ category: v === 'all' ? undefined : v })}
                 >
-                    <SelectTrigger className="w-44">
+                    <SelectTrigger className="h-9 w-[150px] rounded-lg border-[#E2E2E2] bg-white text-[13px] text-[#6B6C6D]">
                         <SelectValue placeholder="Categoria" />
                     </SelectTrigger>
                     <SelectContent>
@@ -165,7 +158,7 @@ export default function CharacteristicsIndex() {
                     value={filters.active ?? 'all'}
                     onValueChange={(v) => applyFilters({ active: v === 'all' ? undefined : v })}
                 >
-                    <SelectTrigger className="w-36">
+                    <SelectTrigger className="h-9 w-[130px] rounded-lg border-[#E2E2E2] bg-white text-[13px] text-[#6B6C6D]">
                         <SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -177,77 +170,61 @@ export default function CharacteristicsIndex() {
             </div>
 
             {/* Table */}
-            <div className="mt-4 rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Nome</TableHead>
-                            <TableHead>Categoria</TableHead>
-                            <TableHead className="text-center">Status</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {characteristics.data.length > 0 ? (
-                            characteristics.data.map((item) => (
-                                <TableRow key={item.id}>
-                                    <TableCell className="font-medium">{item.name}</TableCell>
-                                    <TableCell>{categoryLabels[item.category] ?? item.category}</TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant={item.is_active ? 'default' : 'secondary'}>
-                                            {item.is_active ? 'Ativo' : 'Inativo'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1">
-                                            <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
-                                                <Pencil className="size-4" />
-                                            </Button>
-                                            <Button variant="ghost" size="sm" onClick={() => setToggling(item)}>
-                                                <Power className={`size-4 ${item.is_active ? 'text-destructive' : 'text-empet-success'}`} />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
-                                    Nenhuma característica encontrada.
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
+            <div className="overflow-hidden rounded-[10px] border border-[#E2E2E2] bg-white">
+                {/* Header */}
+                <div className="flex h-10 items-center bg-[#F8F8F8] px-4">
+                    <span className="w-[200px] text-xs font-semibold text-[#6B6C6D]">Nome</span>
+                    <span className="w-[150px] text-xs font-semibold text-[#6B6C6D]">Categoria</span>
+                    <span className="w-20 text-center text-xs font-semibold text-[#6B6C6D]">Status</span>
+                    <span className="flex-1 text-right text-xs font-semibold text-[#6B6C6D]">Ações</span>
+                </div>
+
+                {/* Rows */}
+                {characteristics.data.length > 0 ? characteristics.data.map((item) => (
+                    <div key={item.id} className="flex h-11 items-center border-t border-[#E2E2E2] px-4">
+                        <span className="w-[200px] text-[13px] font-medium text-[#313233]">{item.name}</span>
+                        <span className="w-[150px] text-[13px] text-[#6B6C6D]">{categoryLabels[item.category] ?? item.category}</span>
+                        <span className="w-20 text-center">
+                            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                item.is_active ? 'bg-[#43A047] text-white' : 'bg-[#E7E8E5] text-[#6B6C6D]'
+                            }`}>
+                                {item.is_active ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </span>
+                        <span className="flex flex-1 items-center justify-end gap-1">
+                            <button onClick={() => openEdit(item)} className="rounded p-1 hover:bg-[#F8F8F8]">
+                                <Pencil className="size-4 text-[#9B9C9D]" />
+                            </button>
+                            <button onClick={() => setToggling(item)} className="rounded p-1 hover:bg-[#F8F8F8]">
+                                <Power className={`size-4 ${item.is_active ? 'text-[#E53935]' : 'text-[#43A047]'}`} />
+                            </button>
+                        </span>
+                    </div>
+                )) : (
+                    <div className="flex h-20 items-center justify-center text-[13px] text-[#9B9C9D]">
+                        Nenhuma característica encontrada.
+                    </div>
+                )}
             </div>
 
             {/* Pagination */}
             {characteristics.last_page > 1 && (
-                <div className="mt-4">
-                    <Pagination>
-                        <PaginationContent>
-                            {characteristics.prev_page_url && (
-                                <PaginationItem>
-                                    <PaginationPrevious href={characteristics.prev_page_url} />
-                                </PaginationItem>
-                            )}
-                            {Array.from({ length: characteristics.last_page }, (_, i) => i + 1).map((page) => (
-                                <PaginationItem key={page}>
-                                    <PaginationLink
-                                        href={`/admin/characteristics?page=${page}`}
-                                        isActive={page === characteristics.current_page}
-                                    >
-                                        {page}
-                                    </PaginationLink>
-                                </PaginationItem>
-                            ))}
-                            {characteristics.next_page_url && (
-                                <PaginationItem>
-                                    <PaginationNext href={characteristics.next_page_url} />
-                                </PaginationItem>
-                            )}
-                        </PaginationContent>
-                    </Pagination>
+                <div className="flex items-center justify-center gap-1">
+                    {characteristics.prev_page_url && (
+                        <Link href={characteristics.prev_page_url} className="rounded px-2 py-1 text-[13px] text-[#6B6C6D] hover:bg-[#E7E8E5]">Anterior</Link>
+                    )}
+                    {Array.from({ length: characteristics.last_page }, (_, i) => i + 1).map((page) => (
+                        <Link
+                            key={page}
+                            href={`/admin/characteristics?page=${page}`}
+                            className={`rounded px-2.5 py-1 text-[13px] ${page === characteristics.current_page ? 'bg-primary text-white' : 'text-[#6B6C6D] hover:bg-[#E7E8E5]'}`}
+                        >
+                            {page}
+                        </Link>
+                    ))}
+                    {characteristics.next_page_url && (
+                        <Link href={characteristics.next_page_url} className="rounded px-2 py-1 text-[13px] text-[#6B6C6D] hover:bg-[#E7E8E5]">Próximo</Link>
+                    )}
                 </div>
             )}
 
@@ -257,26 +234,27 @@ export default function CharacteristicsIndex() {
                     <DialogHeader>
                         <DialogTitle>{editing ? 'Editar Característica' : 'Nova Característica'}</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nome</Label>
+                    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-1.5">
+                            <Label htmlFor="name" className="text-sm font-medium text-[#313233]">Nome</Label>
                             <Input
                                 id="name"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                                 autoFocus
+                                className="h-10 rounded-lg border-[#E2E2E2] text-sm"
                             />
                             {form.errors.name && (
                                 <p className="text-sm text-destructive">{form.errors.name}</p>
                             )}
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="category">Categoria</Label>
+                        <div className="flex flex-col gap-1.5">
+                            <Label className="text-sm font-medium text-[#313233]">Categoria</Label>
                             <Select
                                 value={form.data.category}
                                 onValueChange={(v) => form.setData('category', v)}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="h-10 rounded-lg border-[#E2E2E2] text-sm">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -289,13 +267,11 @@ export default function CharacteristicsIndex() {
                                 <p className="text-sm text-destructive">{form.errors.category}</p>
                             )}
                         </div>
-                        <div className="flex justify-end gap-2">
-                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                                Cancelar
-                            </Button>
-                            <Button type="submit" disabled={form.processing}>
+                        <div className="flex justify-end gap-2 pt-2">
+                            <button type="button" onClick={() => setDialogOpen(false)} className="rounded-lg border border-[#E2E2E2] px-4 py-2 text-[13px] text-[#6B6C6D] hover:bg-[#F8F8F8]">Cancelar</button>
+                            <button type="submit" disabled={form.processing} className="rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-white hover:bg-[#CC8000] disabled:opacity-50">
                                 {form.processing ? 'Salvando...' : 'Salvar'}
-                            </Button>
+                            </button>
                         </div>
                     </form>
                 </DialogContent>
