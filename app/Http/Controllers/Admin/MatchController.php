@@ -19,7 +19,7 @@ final class MatchController extends Controller
 
         return Inertia::render('Matches/Index', [
             'matches' => PetMatch::query()
-                ->with(['report:id,status', 'report.pet:id,name', 'sighting:id,title'])
+                ->with(['report:id,pet_id,status', 'report.pet:id,name', 'sighting:id,title'])
                 ->when($filters['status'] ?? null, fn ($q, $status) => $q->where('status', $status))
                 ->when($filters['ai_status'] ?? null, fn ($q, $aiStatus) => $q->where('ai_status', $aiStatus))
                 ->paginateFromRequest('created_at', 'desc'),
