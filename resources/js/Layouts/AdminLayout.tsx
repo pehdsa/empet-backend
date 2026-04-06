@@ -8,59 +8,27 @@ import {
     MapPin,
     GitCompare,
     LogOut,
-    PanelLeftIcon,
+    PanelLeft,
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { SharedProps } from '@/Types/inertia';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import {
-    Breadcrumb,
-    BreadcrumbItem,
-    BreadcrumbList,
-    BreadcrumbPage,
-    BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
-import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarGroupLabel,
-    SidebarHeader,
-    SidebarInset,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    SidebarProvider,
-    SidebarTrigger,
-} from '@/components/ui/sidebar';
 
 const navigation = [
-    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard, routeName: 'admin.dashboard' },
-    { name: 'Raças', href: '/admin/breeds', icon: Dog, routeName: 'admin.breeds' },
-    { name: 'Características', href: '/admin/characteristics', icon: Tags, routeName: 'admin.characteristics' },
-    { name: 'Pets', href: '/admin/pets', icon: PawPrint, routeName: 'admin.pets' },
-    { name: 'Reports', href: '/admin/reports', icon: FileSearch, routeName: 'admin.reports' },
-    { name: 'Avistamentos', href: '/admin/sightings', icon: MapPin, routeName: 'admin.sightings' },
-    { name: 'Matches', href: '/admin/matches', icon: GitCompare, routeName: 'admin.matches' },
+    { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+    { name: 'Raças', href: '/admin/breeds', icon: Dog },
+    { name: 'Características', href: '/admin/characteristics', icon: Tags },
+    { name: 'Pets', href: '/admin/pets', icon: PawPrint },
+    { name: 'Reports', href: '/admin/reports', icon: FileSearch },
+    { name: 'Avistamentos', href: '/admin/sightings', icon: MapPin },
+    { name: 'Matches', href: '/admin/matches', icon: GitCompare },
 ];
 
-const envBadgeColors: Record<string, string> = {
-    production: 'bg-gray-200 text-gray-700',
-    staging: 'bg-yellow-100 text-yellow-800',
-    local: 'bg-blue-100 text-blue-800',
+const envConfig: Record<string, { label: string; bg: string; text: string }> = {
+    production: { label: 'PROD', bg: '#F3F4F6', text: '#374151' },
+    staging: { label: 'STAGING', bg: '#FEF3C7', text: '#92400E' },
+    local: { label: 'LOCAL', bg: '#DBEAFE', text: '#1E40AF' },
 };
 
 interface AdminLayoutProps {
@@ -68,8 +36,54 @@ interface AdminLayoutProps {
     breadcrumbs?: { label: string; href?: string }[];
 }
 
+function UserMenu({ initials, name, email }: { initials?: string; name?: string; email?: string }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+        }
+        if (open) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [open]);
+
+    return (
+        <div ref={ref} className="relative border-t border-[#E2E2E2] pt-3">
+            <button
+                onClick={() => setOpen(!open)}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-[#F8F8F8]"
+            >
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary">
+                    <span className="text-[11px] font-semibold text-white">{initials}</span>
+                </div>
+                <div className="flex flex-1 flex-col gap-px text-left">
+                    <span className="truncate text-[13px] font-medium text-[#313233]">{name}</span>
+                    <span className="truncate text-[11px] text-[#9B9C9D]">{email}</span>
+                </div>
+            </button>
+            {open && (
+                <div className="absolute bottom-full left-0 mb-1 w-full rounded-lg border border-[#E2E2E2] bg-white p-1 shadow-md">
+                    <Link
+                        href="/admin/logout"
+                        method="post"
+                        as="button"
+                        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-[13px] text-[#6B6C6D] hover:bg-[#F8F8F8]"
+                        onClick={() => setOpen(false)}
+                    >
+                        <LogOut className="size-4" />
+                        Sair
+                    </Link>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function AdminLayout({ children, breadcrumbs }: AdminLayoutProps) {
-    const { auth, flash, app, url } = usePage<SharedProps & { url: string }>().props;
+    const page = usePage<SharedProps>();
+    const { auth, flash, app } = page.props;
+    const url = page.url;
 
     useEffect(() => {
         if (flash.success) toast.success(flash.success);
@@ -84,105 +98,90 @@ export default function AdminLayout({ children, breadcrumbs }: AdminLayoutProps)
         .slice(0, 2)
         .toUpperCase();
 
+    const env = envConfig[app.environment] ?? envConfig.local;
+
     return (
-        <SidebarProvider>
-            <Sidebar>
-                <SidebarHeader className="p-4">
-                    <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-primary">
-                            {app.name}
-                        </span>
-                        <Badge
-                            variant="secondary"
-                            className={`text-[10px] uppercase ${envBadgeColors[app.environment] ?? envBadgeColors.local}`}
-                        >
-                            {app.environment === 'production' ? 'PROD' : app.environment.toUpperCase()}
-                        </Badge>
-                    </div>
-                </SidebarHeader>
+        <div className="flex h-screen overflow-hidden">
+            {/* Sidebar — w-[240px], padding 16px 12px, border-r */}
+            <aside className="flex w-[240px] shrink-0 flex-col border-r border-[#E2E2E2] bg-white px-3 py-4">
+                {/* Header — padding 8px 8px 16px 8px, gap-2 */}
+                <div className="flex items-center gap-2 px-2 pb-4 pt-2">
+                    <span className="text-lg font-bold text-primary">emPet</span>
+                    <span
+                        className="rounded-full px-2 py-0.5 text-[9px] font-semibold"
+                        style={{ backgroundColor: env.bg, color: env.text }}
+                    >
+                        {env.label}
+                    </span>
+                </div>
 
-                <SidebarContent>
-                    <SidebarGroup>
-                        <SidebarGroupLabel>Menu</SidebarGroupLabel>
-                        <SidebarGroupContent>
-                            <SidebarMenu>
-                                {navigation.map((item) => {
-                                    const isActive = url?.startsWith(item.href);
-                                    return (
-                                        <SidebarMenuItem key={item.name}>
-                                            <SidebarMenuButton asChild isActive={isActive}>
-                                                <Link href={item.href}>
-                                                    <item.icon className="size-4" />
-                                                    <span>{item.name}</span>
-                                                </Link>
-                                            </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                    );
-                                })}
-                            </SidebarMenu>
-                        </SidebarGroupContent>
-                    </SidebarGroup>
-                </SidebarContent>
+                {/* Menu label */}
+                <span className="px-3 text-[11px] font-medium text-[#9B9C9D]">Menu</span>
 
-                <SidebarFooter className="p-4">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button className="flex w-full items-center gap-3 rounded-lg p-2 text-sm hover:bg-accent">
-                                <Avatar className="size-8">
-                                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                                        {initials}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 text-left">
-                                    <p className="truncate font-medium">{auth.user?.name}</p>
-                                    <p className="truncate text-xs text-muted-foreground">{auth.user?.email}</p>
-                                </div>
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="w-56">
-                            <DropdownMenuItem asChild>
-                                <Link href="/admin/logout" method="post" as="button" className="w-full">
-                                    <LogOut className="mr-2 size-4" />
-                                    Sair
-                                </Link>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </SidebarFooter>
-            </Sidebar>
+                {/* Menu items — gap-0.5 (2px), pt-2 (8px) */}
+                <nav className="mt-2 flex flex-col gap-0.5">
+                    {navigation.map((item) => {
+                        const pathname = url.split('?')[0];
+                        const isActive = item.href === '/admin'
+                            ? pathname === '/admin' || pathname === '/admin/'
+                            : pathname.startsWith(item.href);
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] ${
+                                    isActive
+                                        ? 'bg-primary font-medium text-white'
+                                        : 'text-[#6B6C6D] hover:bg-[#F8F8F8]'
+                                }`}
+                            >
+                                <item.icon className="size-4" />
+                                {item.name}
+                            </Link>
+                        );
+                    })}
+                </nav>
 
-            <SidebarInset>
-                <header className="flex h-14 items-center gap-2 border-b px-4">
-                    <SidebarTrigger>
-                        <PanelLeftIcon className="size-4" />
-                    </SidebarTrigger>
-                    <Separator orientation="vertical" className="h-4" />
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Footer separator + user */}
+                <UserMenu initials={initials} name={auth.user?.name} email={auth.user?.email} />
+            </aside>
+
+            {/* Main area */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+                {/* Header — h-12 (48px), px-4 (16px), gap-2 (8px), border-b */}
+                <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[#E2E2E2] bg-white px-4">
+                    <PanelLeft className="size-[18px] text-[#6B6C6D]" />
+                    <div className="h-4 w-px bg-[#E2E2E2]" />
                     {breadcrumbs && breadcrumbs.length > 0 && (
-                        <Breadcrumb>
-                            <BreadcrumbList>
-                                {breadcrumbs.map((crumb, i) => (
-                                    <BreadcrumbItem key={crumb.label}>
-                                        {i > 0 && <BreadcrumbSeparator />}
-                                        {crumb.href ? (
-                                            <Link href={crumb.href} className="text-muted-foreground hover:text-foreground">
-                                                {crumb.label}
-                                            </Link>
-                                        ) : (
-                                            <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                                        )}
-                                    </BreadcrumbItem>
-                                ))}
-                            </BreadcrumbList>
-                        </Breadcrumb>
+                        <div className="flex items-center gap-1.5">
+                            {breadcrumbs.map((crumb, i) => (
+                                <span key={crumb.label} className="flex items-center gap-1.5">
+                                    {i > 0 && <span className="text-[13px] text-[#9B9C9D]">/</span>}
+                                    {crumb.href ? (
+                                        <Link href={crumb.href} className="text-[13px] text-[#9B9C9D] hover:text-[#313233]">
+                                            {crumb.label}
+                                        </Link>
+                                    ) : (
+                                        <span className="text-[13px] text-[#6B6C6D]">{crumb.label}</span>
+                                    )}
+                                </span>
+                            ))}
+                        </div>
                     )}
                 </header>
 
-                <main className="flex-1 p-6">
-                    {children}
+                {/* Content — padding 24px, gap 24px */}
+                <main className="flex-1 overflow-y-auto bg-[#F8F8F8] p-6">
+                    <div className="flex flex-col gap-6">
+                        {children}
+                    </div>
                 </main>
-            </SidebarInset>
+            </div>
 
             <Toaster richColors position="top-right" />
-        </SidebarProvider>
+        </div>
     );
 }
