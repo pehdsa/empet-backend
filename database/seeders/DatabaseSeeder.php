@@ -19,6 +19,14 @@ class DatabaseSeeder extends Seeder
         $this->call(CharacteristicSeeder::class);
 
         User::firstOrCreate(
+            ['email' => 'admin@empet.com'],
+            User::factory()->admin()->make([
+                'name' => 'Admin',
+                'email' => 'admin@empet.com',
+            ])->getAttributes()
+        );
+
+        User::firstOrCreate(
             ['email' => 'test@example.com'],
             User::factory()->make([
                 'name' => 'Test User',
