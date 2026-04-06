@@ -23,7 +23,7 @@ class DatabaseSeeder extends Seeder
             User::factory()->make([
                 'name' => 'Test User',
                 'email' => 'test@example.com',
-            ])->toArray()
+            ])->getAttributes()
         );
 
         $this->call(PetSeeder::class);
