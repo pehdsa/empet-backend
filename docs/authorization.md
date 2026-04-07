@@ -60,3 +60,17 @@
 | create | CLIENT | `POST /pet-sightings` |
 | delete | Owner ou ADMIN | `DELETE /pet-sightings/{id}` |
 | claim | Nao pode ser o proprio avistador | `POST /pet-sightings/{id}/claim` |
+
+---
+
+## PetReportSightingPolicy
+
+`App\Policies\PetReportSightingPolicy`
+
+| Action | Regra | Usado em |
+|--------|-------|----------|
+| create | CLIENT | `POST /pet-reports/{id}/sightings` |
+| viewAny | CLIENT/ADMIN (LOST/FOUND); Owner/ADMIN (CANCELLED) | `GET /pet-reports/{id}/sightings` |
+| view | Owner do report, autor do sighting ou ADMIN | `GET /pet-reports/{id}/sightings/{id}` |
+
+> **Nota**: `viewAny` permite que qualquer CLIENT/ADMIN veja sightings de reports LOST/FOUND. Reports CANCELLED so sao visiveis para o owner do report e admin.
