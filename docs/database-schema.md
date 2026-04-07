@@ -227,8 +227,16 @@
 |--------|------|----------|---------|-------|
 | id | bigint unsigned | nao | auto-increment | PK |
 | report_id | bigint unsigned | nao | — | FK |
-| matched_pet_id | bigint unsigned | nao | — | FK |
-| score | decimal(5,2) | nao | — | Score de matching (0-100) |
+| sighting_id | bigint unsigned | nao | — | FK |
+| base_score | decimal(5,2) | nao | — | Score deterministico do algoritmo |
+| ai_score | decimal(5,2) | sim | null | Score da avaliacao IA |
+| ai_confidence | decimal(4,3) | sim | null | Confianca da IA (0.000-1.000) |
+| ai_status | varchar(20) | sim | null | `SUCCESS`, `FAILED` |
+| ai_provider | varchar(50) | sim | null | Ex: `openai` |
+| ai_model | varchar(50) | sim | null | Ex: `gpt-4o` |
+| ai_summary | varchar(255) | sim | null | Resumo textual da IA |
+| ai_evaluated_at | timestamp | sim | null | Quando a IA avaliou |
+| final_score | decimal(5,2) | nao | — | Score final (base + AI) para ranking |
 | distance_meters | decimal(10,2) | sim | null | Distancia em metros |
 | status | varchar(255) | nao | — | Enum: `PENDING`, `CONFIRMED`, `DISMISSED` |
 | created_at | timestamp | sim | null | |
@@ -239,11 +247,14 @@
 | Coluna | Referencia | On Delete |
 |--------|------------|-----------|
 | report_id | pet_reports.id | CASCADE |
-| matched_pet_id | pets.id | CASCADE |
+| sighting_id | pet_sightings.id | (no action) |
+
+**Constraints:**
+- UNIQUE composto: `(report_id, sighting_id)`
 
 **Relationships:**
 - belongsTo PetReport (report_id)
-- belongsTo Pet (matched_pet_id)
+- belongsTo PetSighting (sighting_id)
 
 ---
 
@@ -331,6 +342,44 @@
 
 **Constraints:**
 - UNIQUE composto: `(pet_sighting_id, characteristic_id)`
+- Sem timestamps
+
+---
+
+## pet_report_sightings
+
+> Avistamentos reportados por usuarios dentro de um report de pet perdido.
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| user_id | bigint unsigned | nao | — | FK |
+| report_id | bigint unsigned | nao | — | FK |
+| location | geography(Point, 4326) | nao | — | PostGIS — indice GIST |
+| address_hint | varchar(500) | sim | null | |
+| description | text | sim | null | |
+| sighted_at | timestamp | nao | — | |
+| share_phone | boolean | nao | `false` | |
+| is_active | boolean | nao | `true` | |
+| created_at | timestamp | sim | null | |
+| updated_at | timestamp | sim | null | |
+| deleted_at | timestamp | sim | null | Soft Delete |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| user_id | users.id | CASCADE |
+| report_id | pet_reports.id | CASCADE |
+
+**Constraints:**
+- Indice GIST em `location`
+- Indice composto: `(report_id, created_at)`
+- Soft Delete via `deleted_at`
+
+**Relationships:**
+- belongsTo User (user_id)
+- belongsTo PetReport (report_id)
 
 ---
 
@@ -432,6 +481,40 @@
 
 **Relationships:**
 - belongsTo User
+
+---
+
+## admin_action_logs
+
+> Registro imutavel de acoes administrativas. Sem `updated_at` por design (append-only).
+
+| Coluna | Tipo | Nullable | Default | Notas |
+|--------|------|----------|---------|-------|
+| id | bigint unsigned | nao | auto-increment | PK |
+| admin_id | bigint unsigned | nao | — | FK |
+| action | varchar(255) | nao | — | Ex: `breed.toggle_active`, `report.cancel` |
+| subject_type | varchar(255) | nao | — | Morph type (ex: `App\Models\Breed`) |
+| subject_id | bigint unsigned | nao | — | Morph ID |
+| ip | varchar(45) | nao | — | IPv6 support |
+| user_agent | text | nao | — | |
+| reason | text | sim | null | Justificativa quando aplicavel |
+| metadata | jsonb | sim | null | Old/new values, contagens cascade, etc |
+| created_at | timestamp | nao | CURRENT_TIMESTAMP | |
+
+**Foreign Keys:**
+
+| Coluna | Referencia | On Delete |
+|--------|------------|-----------|
+| admin_id | users.id | (no action) |
+
+**Indices:**
+- `(subject_type, subject_id)`
+- `admin_id`
+- `action`
+
+**Relationships:**
+- belongsTo User (admin_id)
+- morphTo (subject_type, subject_id)
 
 ---
 
