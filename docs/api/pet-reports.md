@@ -39,11 +39,15 @@
   "data": {
     "id": 1,
     "reportId": 1,
-    "matchedPetId": 42,
-    "score": "85.50",
+    "sightingId": 7,
+    "baseScore": "72.50",
+    "finalScore": "82.50",
+    "aiStatus": "SUCCESS",
+    "aiSummary": "Pelagem e porte compativeis, orelhas semelhantes",
     "distanceMeters": "1234.56",
     "status": "PENDING",
-    "matchedPet": { ... },
+    "sighting": { ... },
+    "isSightingDeleted": false,
     "createdAt": "2026-03-15T16:00:00.000000Z",
     "updatedAt": "2026-03-15T16:00:00.000000Z"
   }
@@ -349,7 +353,7 @@ Retorna `PetReportResource` com `matchesCount`, `sightingsCount` e `pet` complet
 - O pet deve estar ativo (`is_active = true`) e nao deletado
 - O pet nao pode ter outro report ativo com status `LOST`
 - Location e armazenado como `GEOGRAPHY(POINT, 4326)` via PostGIS
-- Apos commit da transacao, dispatcha job `ProcessPetMatching` via `DB::afterCommit()`
+- Apos commit da transacao, dispatcha job `ProcessReportSightingMatching` via `DB::afterCommit()`
 
 #### Status Codes
 
@@ -543,18 +547,18 @@ Sem body.
 
 #### Algoritmo de Scoring
 
-Matches sao calculados pelo job `ProcessPetMatching`. O score e composto por 6 criterios (max 100 pts). Candidatos abaixo de 30 pts sao descartados. Maximo de 20 matches por report.
+Matches sao calculados pelos jobs `ProcessReportSightingMatching` e `ProcessSightingMatching`. O `baseScore` e composto por 6 criterios. Candidatos abaixo de 30 pts sao descartados. Maximo de 20 matches PENDING por report. Opcionalmente, matches elegiveis passam por avaliacao IA que gera `aiScore` e ajusta o `finalScore`.
 
-| Criterio        | Valores                                                                 |
-|-----------------|-------------------------------------------------------------------------|
-| Proximidade     | 0–35 pts — decaimento linear de 0m (35pts) ate 25km (0pts)             |
-| Raca            | +25 primaria identica, +12 overlap primaria/secundaria, +5 ambas null, 0 um sem raca, **-15** ambas informadas sem intersecao |
-| Tamanho         | +10 exato, +4 diferenca de 1 nivel, 0 diferenca de 2+ niveis           |
-| Sexo            | +10 igual (ambos conhecidos), +5 pelo menos um desconhecido, **-10** ambos conhecidos e diferentes |
-| Cor primaria    | +10 exata, +3 ambas null, 0 caso contrario                             |
-| Caracteristicas | Jaccard × 10 (ambas vazias = +5)                                       |
+| Criterio        | Max  | Valores                                                                 |
+|-----------------|------|-------------------------------------------------------------------------|
+| Proximidade     | 35   | Decaimento linear de 0m (35pts) ate 25km (0pts)                        |
+| Raca            | 25   | +25 primaria identica, +12 secundaria, +5 ambas null, 0 uma null, **-15** mismatch conhecido |
+| Tamanho         | 10   | +10 exato, +4 diferenca de 1 nivel, 0 diferenca de 2+ ou null          |
+| Sexo            | 10   | +10 igual (ambos conhecidos), +5 um UNKNOWN, 0 um null, **-10** diferentes |
+| Cor primaria    | 5    | Jaccard de tokens * 5, +3 ambas null, 0 uma null                       |
+| Caracteristicas | 10   | Jaccard de IDs * 10 (ambas vazias = +5)                                |
 
-> Os valores de penalidade (-15 raca, -10 sexo) sao heuristicas iniciais e podem ser recalibrados. A penalidade reflete que mismatch em dado conhecido e evidencia contra ser o mesmo animal — sem descartar a possibilidade de erro de cadastro.
+> Penalidades (-15 raca, -10 sexo) refletem que mismatch em dado conhecido e evidencia contra ser o mesmo animal. Ver `docs/matching-system.md` para detalhes completos da pipeline AI e calculo do `finalScore`.
 
 #### Request
 
@@ -570,9 +574,9 @@ Matches sao calculados pelo job `ProcessPetMatching`. O score e composto por 6 c
 
 > Nao paginado porque o sistema limita a `MAX_MATCHES = 20` por report.
 
-Ordenacao: `score` DESC, `distance_meters` ASC, `id` ASC.
+Ordenacao: `final_score` DESC, `distance_meters` ASC, `id` ASC.
 
-Cada match inclui `matchedPet` com photos, characteristics, breed e secondaryBreed.
+Cada match inclui `sighting` (PetSightingResource) com photos, characteristics e breed. Campo `isSightingDeleted` indica se o sighting foi soft-deleted.
 
 #### Status Codes
 
@@ -605,8 +609,11 @@ Sem body.
   "data": {
     "id": 1,
     "reportId": 1,
-    "matchedPetId": 42,
-    "score": "85.50",
+    "sightingId": 7,
+    "baseScore": "72.50",
+    "finalScore": "82.50",
+    "aiStatus": "SUCCESS",
+    "aiSummary": "Pelagem e porte compativeis",
     "distanceMeters": "1234.56",
     "status": "DISMISSED",
     ...
@@ -652,8 +659,11 @@ Sem body.
   "data": {
     "id": 1,
     "reportId": 1,
-    "matchedPetId": 42,
-    "score": "85.50",
+    "sightingId": 7,
+    "baseScore": "72.50",
+    "finalScore": "82.50",
+    "aiStatus": "SUCCESS",
+    "aiSummary": "Pelagem e porte compativeis",
     "distanceMeters": "1234.56",
     "status": "CONFIRMED",
     ...

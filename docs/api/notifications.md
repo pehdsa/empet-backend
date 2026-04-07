@@ -22,11 +22,12 @@
 
 O campo `type` e um alias estavel (nao FQCN):
 
-| Classe interna | Alias na API |
-|----------------|-------------|
-| `PetLostNearby` | `pet_lost_nearby` |
-| `PetMatchesFound` | `matches_found` |
-| `PetSightingReported` | `pet_sighting_reported` |
+| Classe interna | Alias na API | Descricao |
+|----------------|-------------|-----------|
+| `PetLostNearby` | `pet_lost_nearby` | Pet perdido proximo ao usuario |
+| `PetMatchesFound` | `matches_found` | Novos matches encontrados para um report |
+| `PetReportSightingReported` | `pet_report_sighting_reported` | Alguem reportou um avistamento no report do usuario |
+| `PetSightingReported` | `pet_sighting_reported` | Avistamento independente reportado |
 
 ---
 

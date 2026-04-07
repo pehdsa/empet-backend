@@ -88,7 +88,7 @@ Avistamentos de pets sao entidades independentes — nao vinculadas diretamente 
 |-------|------|-------------|---------|-----------|
 | latitude | numeric | sim | — | Latitude do usuario |
 | longitude | numeric | sim | — | Longitude do usuario |
-| radius_km | numeric | nao | 50 | Raio de busca em km (max: 50) |
+| radius_km | numeric | nao | 10 | Raio de busca em km (max: 50) |
 | species | string | nao | — | Filtro: `DOG`, `CAT` |
 | size | string | nao | — | Filtro: `SMALL`, `MEDIUM`, `LARGE` |
 | page | int | nao | 1 | Pagina |
@@ -164,7 +164,7 @@ Retorna colecao paginada de `PetSightingResource`. Ordenacao por `created_at DES
 |-------|------|-------------|---------|-----------|
 | latitude | numeric | sim | — | Latitude central |
 | longitude | numeric | sim | — | Longitude central |
-| radius_km | numeric | nao | 50 | Raio de busca em km (max: 50) |
+| radius_km | numeric | nao | 10 | Raio de busca em km (max: 50) |
 | species | string | nao | — | Filtro: `DOG`, `CAT` |
 | size | string | nao | — | Filtro: `SMALL`, `MEDIUM`, `LARGE` |
 
